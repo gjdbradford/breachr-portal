@@ -24,8 +24,9 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
-  // Protect /dashboard routes — only gate here; login page handles its own redirect
-  if (pathname.startsWith('/dashboard') && !user) {
+  // Protect authenticated routes
+  const isProtected = pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding')
+  if (isProtected && !user) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
