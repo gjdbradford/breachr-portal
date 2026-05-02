@@ -1,0 +1,32 @@
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import DashboardNav from '@/components/DashboardNav'
+
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('tenant_id')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile) redirect('/login')
+
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('name, onboarding_complete')
+    .eq('id', profile.tenant_id)
+    .single()
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#0a0e1a' }}>
+      <DashboardNav tenantName={tenant?.name ?? 'My Company'} />
+      <main className="portal-main">
+        {children}
+      </main>
+    </div>
+  )
+}
