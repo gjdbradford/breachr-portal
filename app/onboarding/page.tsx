@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -10,9 +10,11 @@ export default function OnboardingPage() {
   const router = useRouter()
   const [step, setStep] = useState<Step>(1)
   const [loading, setLoading] = useState(false)
+  const [loadingProfile, setLoadingProfile] = useState(true)
   const [error, setError] = useState('')
+  const [tenantId, setTenantId] = useState<string | null>(null)
 
-  // Step 1: company details
+  // Step 1: company details (pre-populated from registration)
   const [companyName, setCompanyName] = useState('')
   const [industry, setIndustry] = useState('')
   const [companySize, setCompanySize] = useState('')
@@ -20,21 +22,57 @@ export default function OnboardingPage() {
   // Step 2: target URLs
   const [targets, setTargets] = useState([{ name: '', url: '', type: 'webapp' }])
 
+  // Load existing profile + tenant data on mount to pre-populate form
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { router.push('/login'); return }
+
+      const { data: profile } = await supabase
+        .from('users')
+        .select('tenant_id')
+        .eq('id', user.id)
+        .single()
+
+      if (!profile) {
+        setLoadingProfile(false)
+        setError('Could not load profile — check RLS policies in Supabase (run supabase-migration.sql)')
+        return
+      }
+
+      setTenantId(profile.tenant_id)
+
+      const { data: tenant } = await supabase
+        .from('tenants')
+        .select('name, industry, company_size, onboarding_complete')
+        .eq('id', profile.tenant_id)
+        .single()
+
+      if (tenant) {
+        if (tenant.name)         setCompanyName(tenant.name)
+        if (tenant.industry)     setIndustry(tenant.industry)
+        if (tenant.company_size) setCompanySize(tenant.company_size)
+        if (tenant.onboarding_complete) {
+          router.push('/dashboard')
+          return
+        }
+      }
+
+      setLoadingProfile(false)
+    })
+  }, [router])
+
   async function handleStep1(e: React.FormEvent) {
     e.preventDefault()
+    if (!tenantId) { setError('Profile not loaded — please refresh'); return }
     setLoading(true)
     setError('')
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/login'); return }
-
-    const { data: profile } = await supabase.from('users').select('tenant_id').eq('id', user.id).single()
-    if (!profile) { setError('Profile not found'); setLoading(false); return }
 
     const { error } = await supabase
       .from('tenants')
       .update({ name: companyName, industry, company_size: companySize })
-      .eq('id', profile.tenant_id)
+      .eq('id', tenantId)
 
     if (error) { setError(error.message); setLoading(false); return }
     setStep(2)
@@ -43,18 +81,14 @@ export default function OnboardingPage() {
 
   async function handleStep2(e: React.FormEvent) {
     e.preventDefault()
+    if (!tenantId) { setError('Profile not loaded — please refresh'); return }
     setLoading(true)
     setError('')
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/login'); return }
-
-    const { data: profile } = await supabase.from('users').select('tenant_id').eq('id', user.id).single()
-    if (!profile) { setError('Profile not found'); setLoading(false); return }
 
     const rows = targets
       .filter(t => t.name.trim() && t.url.trim())
-      .map(t => ({ tenant_id: profile.tenant_id, name: t.name, target_url: t.url, target_type: t.type, active: true }))
+      .map(t => ({ tenant_id: tenantId, name: t.name, target_url: t.url, target_type: t.type, active: true }))
 
     if (rows.length === 0) { setError('Add at least one target URL'); setLoading(false); return }
 
@@ -65,15 +99,10 @@ export default function OnboardingPage() {
   }
 
   async function handleFinish() {
+    if (!tenantId) return
     setLoading(true)
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/login'); return }
-
-    const { data: profile } = await supabase.from('users').select('tenant_id').eq('id', user.id).single()
-    if (profile) {
-      await supabase.from('tenants').update({ onboarding_complete: true }).eq('id', profile.tenant_id)
-    }
+    await supabase.from('tenants').update({ onboarding_complete: true }).eq('id', tenantId)
     router.push('/dashboard')
   }
 
@@ -83,6 +112,18 @@ export default function OnboardingPage() {
 
   function updateTarget(i: number, field: string, value: string) {
     setTargets(prev => prev.map((t, idx) => idx === i ? { ...t, [field]: value } : t))
+  }
+
+  if (loadingProfile) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0e1a' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 32, height: 32, border: '2px solid #42a5f5', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+          <p style={{ color: '#94a3b8', fontSize: 13 }}>Loading your workspace…</p>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      </div>
+    )
   }
 
   return (
@@ -97,10 +138,10 @@ export default function OnboardingPage() {
 
         {step === 1 && (
           <>
-            <h2 className="font-display" style={{ fontSize: 18, fontWeight: 700, color: '#e2e8f0', marginBottom: 6, letterSpacing: '0.05em' }}>
+            <h2 className="font-display" style={{ fontSize: 18, fontWeight: 700, color: '#e2e8f0', marginBottom: 4, letterSpacing: '0.05em' }}>
               CONFIRM YOUR COMPANY
             </h2>
-            <p style={{ color: '#64748b', fontSize: 13, marginBottom: 24 }}>This sets up your tenant workspace.</p>
+            <p style={{ color: '#64748b', fontSize: 13, marginBottom: 24 }}>We pre-filled this from your registration — just confirm or update.</p>
 
             <form onSubmit={handleStep1}>
               <div style={{ marginBottom: 16 }}>
@@ -131,8 +172,8 @@ export default function OnboardingPage() {
                 </select>
               </div>
               {error && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 16 }}>{error}</p>}
-              <button type="submit" className="btn-p" style={{ width: '100%' }} disabled={loading}>
-                {loading ? 'Saving…' : 'Continue →'}
+              <button type="submit" className="btn-p" style={{ width: '100%' }} disabled={loading || !tenantId}>
+                {loading ? 'Saving…' : 'Confirm & Continue →'}
               </button>
             </form>
           </>
