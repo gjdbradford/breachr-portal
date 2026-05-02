@@ -205,7 +205,17 @@ export default function OnboardingPage() {
                     </div>
                   </div>
                   <label className="form-label">URL</label>
-                  <input className="form-input" value={t.url} onChange={e => updateTarget(i, 'url', e.target.value)} placeholder="https://app.yourcompany.com" type="url" />
+                  <input
+                    className="form-input"
+                    value={t.url}
+                    onChange={e => updateTarget(i, 'url', e.target.value)}
+                    onBlur={e => {
+                      const v = e.target.value.trim()
+                      if (v && !v.startsWith('http')) updateTarget(i, 'url', 'https://' + v)
+                    }}
+                    placeholder="app.yourcompany.com"
+                    type="text"
+                  />
                 </div>
               ))}
 
