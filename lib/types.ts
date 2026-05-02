@@ -38,6 +38,11 @@ export interface Scan {
   attack_surface_id: string
   status: 'queued' | 'running' | 'complete' | 'failed' | 'cancelled'
   scan_type: string
+  model_used: string | null
+  tests_run: number
+  tests_total: number
+  progress_pct: number
+  current_phase: string | null
   started_at: string | null
   completed_at: string | null
   created_at: string
@@ -54,5 +59,26 @@ export interface Finding {
   cvss_score: number | null
   owasp_category: string | null
   status: string
+  ai_model: string | null
+  ai_confidence: number | null
+  finding_hash: string | null
   created_at: string
 }
+
+export interface AuditLog {
+  id: string
+  tenant_id: string
+  action: string
+  detail: string | null
+  signature: string | null
+  created_at: string
+}
+
+export const DORA_ARTICLES = [
+  { ref: 'Art. 5–10', name: 'ICT Risk Management', desc: 'Governance framework' },
+  { ref: 'Art. 17',   name: 'ICT Incident Management', desc: 'Classification & reporting' },
+  { ref: 'Art. 24',   name: 'General ICT Testing', desc: 'Annual pen test coverage' },
+  { ref: 'Art. 25',   name: 'Advanced Testing', desc: 'TLPT every 3 years' },
+  { ref: 'Art. 26',   name: 'TIBER-EU TLPT', desc: 'Significant entities only' },
+  { ref: 'Art. 28–30', name: 'Third-party ICT Risk', desc: 'Vendor pen testing' },
+]
