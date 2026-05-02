@@ -14,6 +14,12 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search)
     const e = params.get('error')
     if (e) setError(decodeURIComponent(e))
+
+    // If already authenticated, go to dashboard (client-side to avoid proxy loop)
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) window.location.href = '/dashboard'
+    })
   }, [])
 
   async function handleLogin(e: React.FormEvent) {
