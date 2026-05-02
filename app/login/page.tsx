@@ -78,7 +78,7 @@ export default function LoginPage() {
 
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 12, color: '#94a3b8' }}>
           Don&apos;t have an account?{' '}
-          <Link href="https://breachr.ai/#register" style={{ color: '#42a5f5' }}>Start free on breachr.ai</Link>
+          <a href="https://project-45mgy.vercel.app/#register" style={{ color: '#42a5f5' }}>Start free on breachr.ai</a>
         </p>
       </div>
     </div>
