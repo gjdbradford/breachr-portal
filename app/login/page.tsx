@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
@@ -9,6 +9,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const e = params.get('error')
+    if (e) setError(decodeURIComponent(e))
+  }, [])
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
