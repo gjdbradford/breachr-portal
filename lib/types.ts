@@ -62,6 +62,7 @@ export interface Finding {
   ai_model: string | null
   ai_confidence: number | null
   finding_hash: string | null
+  remediation: string | null
   created_at: string
 }
 

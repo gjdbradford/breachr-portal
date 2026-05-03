@@ -22,13 +22,20 @@ const MODEL_DISPLAY: Record<string, string> = {
 }
 
 const SIMULATED_FINDINGS = [
-  { title: 'SQL Injection — login endpoint',        severity: 'critical', ai_model: 'Claude Opus 4',    ai_confidence: 94.2, owasp_category: 'A03:2021', cvss_score: 9.1 },
-  { title: 'IDOR — user profile enumeration',       severity: 'high',     ai_model: 'Llama 3.1 70B',   ai_confidence: 89.7, owasp_category: 'A01:2021', cvss_score: 7.5 },
-  { title: 'Authentication bypass via JWT forgery', severity: 'critical', ai_model: 'Claude Opus 4',    ai_confidence: 91.8, owasp_category: 'A07:2021', cvss_score: 9.8 },
-  { title: 'Missing security headers (CSP/HSTS)',   severity: 'medium',   ai_model: 'Mistral 7B',       ai_confidence: 87.3, owasp_category: 'A05:2021', cvss_score: 4.3 },
-  { title: 'Exposed API key in JS bundle',          severity: 'high',     ai_model: 'Llama 3.1 70B',   ai_confidence: 96.1, owasp_category: 'A02:2021', cvss_score: 8.2 },
-  { title: 'SSRF via webhook URL parameter',        severity: 'high',     ai_model: 'Claude Opus 4',    ai_confidence: 88.4, owasp_category: 'A10:2021', cvss_score: 7.1 },
-  { title: 'Cross-site request forgery on /transfer', severity: 'medium', ai_model: 'Multi-Model',      ai_confidence: 92.0, owasp_category: 'A01:2021', cvss_score: 6.5 },
+  { title: 'SQL Injection — login endpoint',        severity: 'critical', ai_model: 'Claude Opus 4',  ai_confidence: 94.2, owasp_category: 'A03:2021', cvss_score: 9.1,
+    remediation: 'Use parameterised queries or prepared statements. Never concatenate user input into SQL strings. Apply input validation and least-privilege DB accounts. Consider a WAF rule for short-term mitigation.' },
+  { title: 'IDOR — user profile enumeration',       severity: 'high',     ai_model: 'Llama 3.1 70B', ai_confidence: 89.7, owasp_category: 'A01:2021', cvss_score: 7.5,
+    remediation: 'Enforce server-side authorisation on every object access. Replace sequential IDs with UUIDs. Validate that the authenticated user owns the requested resource before returning data.' },
+  { title: 'Authentication bypass via JWT forgery', severity: 'critical', ai_model: 'Claude Opus 4',  ai_confidence: 91.8, owasp_category: 'A07:2021', cvss_score: 9.8,
+    remediation: 'Reject tokens signed with the "none" algorithm. Enforce RS256 or ES256 with a pinned public key. Validate iss, aud, and exp claims. Rotate signing keys immediately.' },
+  { title: 'Missing security headers (CSP/HSTS)',   severity: 'medium',   ai_model: 'Mistral 7B',     ai_confidence: 87.3, owasp_category: 'A05:2021', cvss_score: 4.3,
+    remediation: 'Add Content-Security-Policy, Strict-Transport-Security (max-age≥31536000; includeSubDomains), X-Frame-Options: DENY, and X-Content-Type-Options: nosniff headers on all responses.' },
+  { title: 'Exposed API key in JS bundle',          severity: 'high',     ai_model: 'Llama 3.1 70B', ai_confidence: 96.1, owasp_category: 'A02:2021', cvss_score: 8.2,
+    remediation: 'Revoke the exposed key immediately. Move all secrets to server-side environment variables. Audit git history for historical exposure. Use a secrets scanner in CI to prevent recurrence.' },
+  { title: 'SSRF via webhook URL parameter',        severity: 'high',     ai_model: 'Claude Opus 4',  ai_confidence: 88.4, owasp_category: 'A10:2021', cvss_score: 7.1,
+    remediation: 'Validate webhook URLs against an allowlist of approved domains. Block requests to RFC-1918 ranges (10.x, 172.16.x, 192.168.x) and link-local addresses. Use an outbound proxy to enforce egress policy.' },
+  { title: 'Cross-site request forgery on /transfer', severity: 'medium', ai_model: 'Multi-Model',    ai_confidence: 92.0, owasp_category: 'A01:2021', cvss_score: 6.5,
+    remediation: 'Implement synchronised CSRF tokens (Double Submit Cookie pattern) on all state-changing endpoints. Validate Origin and Referer headers. Use SameSite=Strict on session cookies.' },
 ]
 
 async function logAudit(action: string, detail: object) {
@@ -93,6 +100,7 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
         finding_hash,
         status: 'open',
         description: `Identified by ${f.ai_model} during active exploitation phase. CVSS ${f.cvss_score} — ${f.owasp_category}.`,
+        remediation: f.remediation,
       }).select().single()
 
       if (inserted) {

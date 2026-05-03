@@ -53,7 +53,6 @@ export async function GET() {
       detail: entry.detail ?? '',
       prev_hash: entry.prev_hash ?? GENESIS_HASH,
       tenant_id: entry.tenant_id,
-      ts: entry.created_at,
     })
     const expectedSig = hmacSha256Hex(signingKey, payload)
     const sigValid = safeEqual(expectedSig, entry.signature ?? '')

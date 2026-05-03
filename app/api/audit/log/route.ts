@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
-import { createHmac, timingSafeEqual } from 'crypto'
+import { createHmac } from 'crypto'
 import { sha256Hex, GENESIS_HASH } from '@/lib/audit'
 
 const VALID_ACTIONS = ['scan.queued', 'scan.started', 'finding.discovered', 'scan.completed'] as const
 
 function hmacSha256Hex(key: string, data: string): string {
   return createHmac('sha256', Buffer.from(key, 'hex')).update(data, 'utf8').digest('hex')
-}
-
-// Deterministic serialisation — fixed key order
-function signPayload(action: string, detail: string, prevHash: string, tenantId: string, ts: string): string {
-  return JSON.stringify({ action, detail, prev_hash: prevHash, tenant_id: tenantId, ts })
 }
 
 export async function POST(req: NextRequest) {
@@ -30,19 +25,20 @@ export async function POST(req: NextRequest) {
   const { action, detail } = body
 
   if (!VALID_ACTIONS.includes(action)) {
-    return NextResponse.json({ error: `Invalid action. Must be one of: ${VALID_ACTIONS.join(', ')}` }, { status: 400 })
+    return NextResponse.json({ error: `Invalid action` }, { status: 400 })
   }
 
   const tenantId = profile.tenant_id
-  const detailStr = typeof detail === 'string' ? detail : JSON.stringify(detail ?? {})
   const ts = new Date().toISOString()
+  // Embed ts in detail so it's covered by the signature without touching created_at
+  const detailObj = typeof detail === 'object' ? detail : {}
+  const detailStr = JSON.stringify({ ...detailObj, _ts: ts })
 
   const adminClient = createAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Get last entry for chain linking
   const { data: lastEntry } = await adminClient
     .from('audit_logs')
     .select('signature')
@@ -55,7 +51,8 @@ export async function POST(req: NextRequest) {
     ? await sha256Hex(lastEntry.signature)
     : GENESIS_HASH
 
-  const payload = signPayload(action, detailStr, prevHash, tenantId, ts)
+  // Sign: fixed key order for determinism
+  const payload = JSON.stringify({ action, detail: detailStr, prev_hash: prevHash, tenant_id: tenantId })
   const signature = hmacSha256Hex(signingKey, payload)
 
   const { data: inserted, error } = await adminClient
@@ -67,7 +64,6 @@ export async function POST(req: NextRequest) {
       detail: detailStr,
       signature,
       prev_hash: prevHash,
-      created_at: ts,
     })
     .select('id, created_at')
     .single()
