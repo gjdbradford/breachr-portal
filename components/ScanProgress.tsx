@@ -6,6 +6,10 @@ import Link from 'next/link'
 import type { Scan, Finding } from '@/lib/types'
 import { hashFinding } from '@/lib/audit'
 
+// Scans using these model IDs are simulated client-side.
+// Any other model_used value means the Python engine is handling it → use Realtime.
+const SIMULATED_MODEL_IDS = new Set(['claude-opus', 'llama-3.1', 'multi-model'])
+
 const PHASES = ['queued', 'probing', 'attacking', 'validating', 'complete']
 const PHASE_LABELS: Record<string, string> = {
   queued:     'Queued — waiting to start',
@@ -16,9 +20,10 @@ const PHASE_LABELS: Record<string, string> = {
 }
 
 const MODEL_DISPLAY: Record<string, string> = {
-  'claude-opus': 'Claude Opus 4',
-  'llama-3.1':   'Llama 3.1 70B',
-  'multi-model': 'Multi-Model Ensemble',
+  'claude-opus':        'Claude Opus 4 (simulated)',
+  'llama-3.1':          'Llama 3.1 70B (simulated)',
+  'multi-model':        'Multi-Model Ensemble (simulated)',
+  'claude-sonnet-4-6':  'Claude Sonnet 4.6',
 }
 
 const SIMULATED_FINDINGS = [
@@ -57,6 +62,29 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
   const supabase = createClient()
 
   const surface = scan.attack_surfaces as any
+  const isSimulated = SIMULATED_MODEL_IDS.has(scan.model_used ?? '')
+
+  // Real scan mode: subscribe to Supabase Realtime — Python engine writes updates
+  useEffect(() => {
+    if (isSimulated) return
+    if (scan.status === 'complete' || scan.status === 'failed') return
+
+    const channel = supabase
+      .channel(`scan-${scan.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'scans', filter: `id=eq.${scan.id}`,
+      }, (payload: any) => {
+        setScan(prev => ({ ...prev, ...payload.new } as Scan))
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'findings', filter: `scan_id=eq.${scan.id}`,
+      }, (payload: any) => {
+        setFindings(prev => [payload.new as Finding, ...prev])
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [scan.id, scan.status, isSimulated, supabase])
 
   const advanceScan = useCallback(async () => {
     if (scan.status === 'complete' || scan.status === 'failed') return
@@ -148,6 +176,7 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
   }, [scan, simStep, supabase])
 
   useEffect(() => {
+    if (!isSimulated) return  // real scans handled by Realtime subscription above
     if (scan.status === 'complete' || scan.status === 'failed') return
     if (scan.status === 'queued') {
       supabase.from('scans').update({ status: 'running', current_phase: 'probing', started_at: new Date().toISOString() }).eq('id', scan.id).then(() => {
