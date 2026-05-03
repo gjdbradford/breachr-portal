@@ -1,10 +1,13 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import type { Scan, Finding } from '@/lib/types'
 import { hashFinding } from '@/lib/audit'
+
+type ConnState = 'connecting' | 'connected' | 'disconnected'
 
 // Scans using these model IDs are simulated client-side.
 // Any other model_used value means the Python engine is handling it → use Realtime.
@@ -56,18 +59,43 @@ async function logAudit(action: string, detail: object) {
 }
 
 export default function ScanProgress({ scan: initialScan, initialFindings }: { scan: Scan & { attack_surfaces?: any }; initialFindings: Finding[] }) {
+  const router = useRouter()
   const [scan, setScan] = useState(initialScan)
   const [findings, setFindings] = useState<Finding[]>(initialFindings)
   const [simStep, setSimStep] = useState(0)
+  const [connState, setConnState] = useState<ConnState>('connecting')
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
+  const [syncing, setSyncing] = useState(false)
   const supabase = createClient()
 
   const surface = scan.attack_surfaces as any
   const isSimulated = SIMULATED_MODEL_IDS.has(scan.model_used ?? '')
 
-  // Real scan mode: subscribe to Supabase Realtime — Python engine writes updates
+  // Manual sync — re-fetches scan + findings directly from DB, bypasses Realtime
+  const syncNow = useCallback(async () => {
+    setSyncing(true)
+    const [{ data: freshScan }, { data: freshFindings }] = await Promise.all([
+      supabase.from('scans').select('*, attack_surfaces(name, target_url, target_type)').eq('id', scan.id).single(),
+      supabase.from('findings').select('*').eq('scan_id', scan.id).order('created_at', { ascending: false }),
+    ])
+    if (freshScan) {
+      setScan(freshScan as any)
+      if (freshScan.status === 'complete') router.refresh()
+    }
+    if (freshFindings) setFindings(freshFindings as Finding[])
+    setLastSyncAt(new Date())
+    setSyncing(false)
+  }, [scan.id, supabase, router])
+
+  // Real scan mode: Supabase Realtime subscription with connection state tracking
   useEffect(() => {
     if (isSimulated) return
-    if (scan.status === 'complete' || scan.status === 'failed') return
+    if (scan.status === 'complete' || scan.status === 'failed') {
+      setConnState('connected')
+      return
+    }
+
+    setConnState('connecting')
 
     const channel = supabase
       .channel(`scan-${scan.id}`)
@@ -75,16 +103,34 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
         event: 'UPDATE', schema: 'public', table: 'scans', filter: `id=eq.${scan.id}`,
       }, (payload: any) => {
         setScan(prev => ({ ...prev, ...payload.new } as Scan))
+        setLastSyncAt(new Date())
+        if (payload.new.status === 'complete') router.refresh()
       })
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'findings', filter: `scan_id=eq.${scan.id}`,
       }, (payload: any) => {
-        setFindings(prev => [payload.new as Finding, ...prev])
+        setFindings(prev => {
+          // Avoid duplicates if manual sync already added this finding
+          if (prev.some(f => f.id === payload.new.id)) return prev
+          return [payload.new as Finding, ...prev]
+        })
+        setLastSyncAt(new Date())
       })
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') setConnState('connected')
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setConnState('disconnected')
+      })
 
-    return () => { supabase.removeChannel(channel) }
-  }, [scan.id, scan.status, isSimulated, supabase])
+    // Periodic fallback poll every 30s if Realtime drops
+    const fallbackInterval = setInterval(() => {
+      if (connState === 'disconnected') syncNow()
+    }, 30_000)
+
+    return () => {
+      supabase.removeChannel(channel)
+      clearInterval(fallbackInterval)
+    }
+  }, [scan.id, scan.status, isSimulated, supabase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const advanceScan = useCallback(async () => {
     if (scan.status === 'complete' || scan.status === 'failed') return
@@ -192,6 +238,33 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
   const pct = scan.progress_pct ?? 0
   const isRunning = scan.status === 'running'
   const isComplete = scan.status === 'complete'
+  const isActive = scan.status === 'queued' || scan.status === 'running'
+
+  // True when the user landed on this page with a scan already in-flight (i.e. not started by them just now)
+  const returnedToActiveScan = !isSimulated && isActive && initialFindings.length > 0
+
+  // Elapsed time counter for active real scans
+  const [elapsed, setElapsed] = useState(0)
+  const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  useEffect(() => {
+    if (!isSimulated && isActive) {
+      elapsedRef.current = setInterval(() => setElapsed(s => s + 1), 1000)
+    }
+    return () => { if (elapsedRef.current) clearInterval(elapsedRef.current) }
+  }, [isSimulated, isActive])
+
+  const fmtElapsed = (s: number) => {
+    const m = Math.floor(s / 60)
+    const sec = s % 60
+    return m > 0 ? `${m}m ${sec}s` : `${sec}s`
+  }
+
+  const SCAN_EST: Record<string, { time: string; desc: string }> = {
+    full:  { time: '8–12 min',  desc: 'OWASP Top 10 webapp scan' },
+    api:   { time: '4–7 min',   desc: 'REST/GraphQL endpoint fuzzing' },
+    tlpt:  { time: '15–25 min', desc: 'DORA Art.26 threat-led exercise' },
+  }
+  const est = SCAN_EST[scan.scan_type ?? ''] ?? { time: '8–12 min', desc: 'full security scan' }
 
   return (
     <>
@@ -307,13 +380,78 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
         </div>
       )}
 
-      {/* Queued state for real scans — engine will pick up within 15s */}
-      {!isSimulated && scan.status === 'queued' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', marginBottom: 16, background: 'rgba(25,118,210,0.06)', border: '1px solid rgba(25,118,210,0.2)', borderRadius: 8 }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#42a5f5', animation: 'pulse 1.5s infinite', display: 'inline-block', flexShrink: 0 }} />
-          <span style={{ fontSize: 12, color: '#64748b' }}>
-            Scan engine polling every 15 seconds — your scan will start automatically.
-          </span>
+      {/* Active scan status banner — queued or running real scans */}
+      {!isSimulated && isActive && (
+        <div style={{ marginBottom: 16, padding: '18px 20px', background: 'rgba(25,118,210,0.05)', border: '1px solid rgba(25,118,210,0.22)', borderRadius: 12, position: 'relative', overflow: 'hidden' }}>
+          {/* Animated sweep line */}
+          <div style={{ position: 'absolute', top: 0, left: '-100%', width: '60%', height: 2, background: 'linear-gradient(90deg,transparent,#42a5f5,transparent)', animation: 'sweep 2.5s linear infinite' }} />
+
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+            {/* Pulsing icon */}
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(25,118,210,0.1)', border: '1px solid rgba(25,118,210,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <span style={{ width: 12, height: 12, borderRadius: '50%', background: '#42a5f5', display: 'inline-block', animation: 'pulse 1.2s infinite' }} />
+            </div>
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p className="font-display" style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.06em', marginBottom: 5 }}>
+                {scan.status === 'queued' ? 'BREACHR IS PREPARING TO BREACH...' : 'BREACHR IS BREACHING...'}
+              </p>
+              <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 12, lineHeight: 1.5 }}>
+                {scan.status === 'queued'
+                  ? 'The scan engine is connecting — your scan will start automatically within 15 seconds. No action required.'
+                  : 'Real HTTP probes are running against your target. Claude Sonnet 4.6 is analysing each response for vulnerabilities in real-time.'}
+              </p>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                  <span style={{ color: '#475569' }}>Est. duration:</span>
+                  <span style={{ color: '#42a5f5', fontWeight: 700, fontFamily: 'monospace' }}>{est.time}</span>
+                  <span style={{ color: '#334155' }}>· {est.desc}</span>
+                </div>
+                {elapsed > 0 && (
+                  <div style={{ display: 'flex', gap: 6, fontSize: 11 }}>
+                    <span style={{ color: '#475569' }}>Elapsed:</span>
+                    <span style={{ color: '#e2e8f0', fontFamily: 'monospace', fontWeight: 600 }}>{fmtElapsed(elapsed)}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 6, fontSize: 11, alignItems: 'center' }}>
+                  <span style={{ color: '#475569' }}>Engine:</span>
+                  <span style={{ color: '#22c55e', fontWeight: 600 }}>Railway · running independently</span>
+                </div>
+                {connState === 'disconnected' && (
+                  <button
+                    onClick={syncNow}
+                    disabled={syncing}
+                    style={{ padding: '4px 12px', borderRadius: 6, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    {syncing ? 'Reconnecting…' : '⚠ Disconnected — click to resync'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Re-entry banner — shown when user navigates back to a scan that was already running */}
+      {returnedToActiveScan && (
+        <div style={{ marginBottom: 16, padding: '14px 18px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 18 }}>⟳</span>
+            <div>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', marginBottom: 2 }}>Scan still running in the background</p>
+              <p style={{ fontSize: 11, color: '#94a3b8' }}>
+                The scanner on Railway continued while you were away. {findings.length} finding{findings.length !== 1 ? 's' : ''} recorded so far — syncing new results now.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={syncNow}
+            disabled={syncing}
+            style={{ flexShrink: 0, padding: '7px 16px', borderRadius: 7, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', fontSize: 11, fontWeight: 700, cursor: syncing ? 'wait' : 'pointer' }}
+          >
+            {syncing ? 'Syncing…' : '↻ Sync Now'}
+          </button>
         </div>
       )}
 
@@ -322,12 +460,36 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
           <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>
             Live Findings {findings.length > 0 && <span style={{ color: '#64748b', fontWeight: 400 }}>({findings.length} found)</span>}
           </span>
-          {isRunning && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: '#42a5f5' }}>
-              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#42a5f5', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
-              Updating live
-            </span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {/* Connection state indicator */}
+            {!isSimulated && isActive && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10 }}>
+                <span style={{
+                  width: 5, height: 5, borderRadius: '50%', display: 'inline-block',
+                  background: connState === 'connected' ? '#22c55e' : connState === 'connecting' ? '#f59e0b' : '#ef4444',
+                  animation: connState === 'connected' ? 'pulse 2s infinite' : undefined,
+                }} />
+                <span style={{ color: connState === 'connected' ? '#22c55e' : connState === 'connecting' ? '#f59e0b' : '#ef4444' }}>
+                  {connState === 'connected' ? 'Live' : connState === 'connecting' ? 'Connecting…' : 'Disconnected'}
+                </span>
+              </span>
+            )}
+            {/* Manual sync button — always visible for active real scans */}
+            {!isSimulated && isActive && (
+              <button
+                onClick={syncNow}
+                disabled={syncing}
+                style={{ padding: '3px 10px', borderRadius: 5, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: syncing ? '#475569' : '#64748b', fontSize: 10, cursor: syncing ? 'wait' : 'pointer' }}
+              >
+                {syncing ? 'Syncing…' : '↻ Sync'}
+              </button>
+            )}
+            {lastSyncAt && (
+              <span style={{ fontSize: 10, color: '#334155' }}>
+                Updated {lastSyncAt.toLocaleTimeString()}
+              </span>
+            )}
+          </div>
         </div>
 
         {findings.length > 0 ? (
