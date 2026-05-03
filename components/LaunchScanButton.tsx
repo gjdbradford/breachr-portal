@@ -46,6 +46,12 @@ export default function LaunchScanButton({ surfaces, tenantId }: { surfaces: Sur
       .single()
 
     if (!error && data) {
+      // Non-blocking audit entry
+      fetch('/api/audit/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'scan.queued', detail: { scan_id: data.id, scan_type: scanType, model, surface_id: surfaceId } }),
+      }).catch(e => console.error('audit log failed', e))
       setOpen(false)
       router.push(`/dashboard/scans/${data.id}`)
     } else {

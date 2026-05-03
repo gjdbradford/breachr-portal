@@ -10,6 +10,7 @@ const links = [
   { href: '/dashboard/scans', label: 'Scans', icon: '⟳' },
   { href: '/dashboard/findings', label: 'Findings', icon: '⚠' },
   { href: '/dashboard/reports', label: 'Reports', icon: '▤' },
+  { href: '/dashboard/audit', label: 'Audit Trail', icon: '⛓' },
 ]
 
 export default function DashboardNav({ tenantName }: { tenantName: string }) {

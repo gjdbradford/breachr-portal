@@ -15,9 +15,18 @@ ALTER TABLE findings
   ADD COLUMN IF NOT EXISTS ai_confidence   numeric(5,2),
   ADD COLUMN IF NOT EXISTS finding_hash    text UNIQUE;
 
--- audit_logs: cryptographic signature
+-- audit_logs: cryptographic signature + chain columns
 ALTER TABLE audit_logs
-  ADD COLUMN IF NOT EXISTS signature       text;
+  ADD COLUMN IF NOT EXISTS signature       text,
+  ADD COLUMN IF NOT EXISTS prev_hash       text,
+  ADD COLUMN IF NOT EXISTS user_id         uuid REFERENCES auth.users(id);
+
+-- findings: scope uniqueness to scan, not globally (allows same vuln across different scans)
+ALTER TABLE findings DROP CONSTRAINT IF EXISTS findings_finding_hash_key;
+CREATE UNIQUE INDEX IF NOT EXISTS findings_hash_per_scan ON findings (scan_id, finding_hash);
+
+-- Index for fast chain traversal
+CREATE INDEX IF NOT EXISTS audit_logs_tenant_time ON audit_logs (tenant_id, created_at ASC);
 
 -- attack_surfaces: ensure active flag exists
 ALTER TABLE attack_surfaces

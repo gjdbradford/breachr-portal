@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import type { Scan, Finding } from '@/lib/types'
+import { hashFinding } from '@/lib/audit'
 
 const PHASES = ['queued', 'probing', 'attacking', 'validating', 'complete']
 const PHASE_LABELS: Record<string, string> = {
@@ -30,10 +31,16 @@ const SIMULATED_FINDINGS = [
   { title: 'Cross-site request forgery on /transfer', severity: 'medium', ai_model: 'Multi-Model',      ai_confidence: 92.0, owasp_category: 'A01:2021', cvss_score: 6.5 },
 ]
 
-function hashStr(s: string): string {
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0
-  return Math.abs(h).toString(16).padStart(8, '0')
+async function logAudit(action: string, detail: object) {
+  try {
+    await fetch('/api/audit/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, detail }),
+    })
+  } catch (e) {
+    console.error('audit log failed', e)
+  }
 }
 
 export default function ScanProgress({ scan: initialScan, initialFindings }: { scan: Scan & { attack_surfaces?: any }; initialFindings: Finding[] }) {
@@ -44,7 +51,6 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
 
   const surface = scan.attack_surfaces as any
 
-  // Advance the simulated scan every few seconds
   const advanceScan = useCallback(async () => {
     if (scan.status === 'complete' || scan.status === 'failed') return
 
@@ -63,10 +69,18 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
 
     await supabase.from('scans').update(update).eq('id', scan.id)
 
-    // Inject a simulated finding occasionally
     if (!isComplete && simStep < SIMULATED_FINDINGS.length) {
       const f = SIMULATED_FINDINGS[simStep]
-      const hash = hashStr(scan.id + f.title + simStep)
+      const finding_hash = await hashFinding({
+        scan_id: scan.id,
+        title: f.title,
+        severity: f.severity,
+        owasp_category: f.owasp_category,
+        cvss_score: f.cvss_score,
+        ai_model: f.ai_model,
+        ai_confidence: f.ai_confidence,
+      })
+
       const { data: inserted } = await supabase.from('findings').insert({
         scan_id: scan.id,
         tenant_id: scan.tenant_id,
@@ -76,12 +90,27 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
         ai_confidence: f.ai_confidence,
         owasp_category: f.owasp_category,
         cvss_score: f.cvss_score,
-        finding_hash: hash,
+        finding_hash,
         status: 'open',
         description: `Identified by ${f.ai_model} during active exploitation phase. CVSS ${f.cvss_score} — ${f.owasp_category}.`,
       }).select().single()
-      if (inserted) setFindings(prev => [inserted as Finding, ...prev])
+
+      if (inserted) {
+        setFindings(prev => [inserted as Finding, ...prev])
+        // Non-blocking audit log
+        logAudit('finding.discovered', {
+          scan_id: scan.id,
+          finding_id: inserted.id,
+          title: f.title,
+          severity: f.severity,
+          finding_hash,
+        })
+      }
       setSimStep(s => s + 1)
+    }
+
+    if (isComplete) {
+      logAudit('scan.completed', { scan_id: scan.id, total_findings: simStep })
     }
 
     setScan(prev => ({ ...prev, ...update } as Scan))
@@ -89,10 +118,10 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
 
   useEffect(() => {
     if (scan.status === 'complete' || scan.status === 'failed') return
-    // Kick off — start scan immediately if queued
     if (scan.status === 'queued') {
       supabase.from('scans').update({ status: 'running', current_phase: 'probing', started_at: new Date().toISOString() }).eq('id', scan.id).then(() => {
         setScan(prev => ({ ...prev, status: 'running', current_phase: 'probing' } as Scan))
+        logAudit('scan.started', { scan_id: scan.id, model: scan.model_used })
       })
     }
     const interval = setInterval(advanceScan, 3500)
@@ -106,7 +135,6 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
 
   return (
     <>
-      {/* Header */}
       <div className="portal-header">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -125,13 +153,10 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
         )}
       </div>
 
-      {/* Live status bar */}
       <div className="gs au1" style={{ padding: 20, marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {isRunning && (
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#42a5f5', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
-            )}
+            {isRunning && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#42a5f5', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />}
             {isComplete && <span style={{ color: '#22c55e', fontSize: 14 }}>✓</span>}
             <span style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 500 }}>{PHASE_LABELS[phase] ?? phase}</span>
           </div>
@@ -141,14 +166,12 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
           </div>
         </div>
 
-        {/* Progress bar */}
         <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginBottom: 16 }}>
           <div style={{ height: '100%', width: `${pct}%`, background: isComplete ? 'linear-gradient(90deg,#22c55e,#4ade80)' : 'linear-gradient(90deg,#1976d2,#42a5f5)', borderRadius: 3, transition: 'width 0.5s ease' }} />
         </div>
 
-        {/* Phase pills */}
         <div style={{ display: 'flex', gap: 8 }}>
-          {PHASES.filter(p => p !== 'queued').map((p, i) => {
+          {PHASES.filter(p => p !== 'queued').map((p) => {
             const phaseIdx = PHASES.indexOf(phase)
             const done = PHASES.indexOf(p) < phaseIdx
             const active = p === phase
@@ -161,7 +184,6 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
         </div>
       </div>
 
-      {/* Scan metadata */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
         {[
           { label: 'Target', value: surface?.name ?? '—' },
@@ -176,7 +198,6 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
         ))}
       </div>
 
-      {/* Live findings */}
       <div className="gs au1" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>
@@ -224,7 +245,7 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
                   </td>
                   <td>
                     {f.finding_hash ? (
-                      <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#3b5f8a' }}>{f.finding_hash.slice(0, 10)}…</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#3b5f8a' }} title={f.finding_hash}>{f.finding_hash.slice(0, 12)}…</span>
                     ) : '—'}
                   </td>
                 </tr>

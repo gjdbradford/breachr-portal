@@ -68,9 +68,11 @@ export interface Finding {
 export interface AuditLog {
   id: string
   tenant_id: string
+  user_id: string | null
   action: string
   detail: string | null
   signature: string | null
+  prev_hash: string | null
   created_at: string
 }
 
