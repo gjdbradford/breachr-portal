@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 
 const links = [
   { href: '/dashboard', label: 'Overview', icon: '◈' },
+  { href: '/dashboard/targets', label: 'Targets', icon: '◎' },
   { href: '/dashboard/scans', label: 'Scans', icon: '⟳' },
   { href: '/dashboard/findings', label: 'Findings', icon: '⚠' },
   { href: '/dashboard/reports', label: 'Reports', icon: '▤' },
