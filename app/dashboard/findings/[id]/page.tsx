@@ -107,7 +107,7 @@ export default async function FindingDetailPage({ params }: { params: Promise<{ 
             </h2>
             {remediationSteps ? (
               <ol style={{ paddingLeft: 0, margin: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {remediationSteps.map((step, i) => {
+                {remediationSteps.map((step: string, i: number) => {
                   const clean = step.replace(/^\d+\.\s*/, '')
                   return (
                     <li key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
