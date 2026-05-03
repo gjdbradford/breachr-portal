@@ -195,6 +195,19 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
 
   return (
     <>
+      {isSimulated && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', marginBottom: 16, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 8 }}>
+          <span style={{ fontSize: 16 }}>⚠</span>
+          <div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b' }}>SIMULATED SCAN</span>
+            <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 10 }}>
+              These findings are demo data — not real vulnerabilities.
+              The <strong style={{ color: '#e2e8f0' }}>Breachr scanner engine</strong> runs automatically in the background and picks up new scans within 15 seconds.
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="portal-header">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
