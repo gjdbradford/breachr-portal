@@ -215,9 +215,20 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
             <span style={{ color: '#334155', fontSize: 12 }}>/</span>
             <span style={{ fontSize: 12, color: '#94a3b8' }}>{surface?.name ?? 'Scan'}</span>
           </div>
-          <h1 className="font-display" style={{ fontSize: 16, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.05em' }}>
-            {isComplete ? 'SCAN COMPLETE' : 'SCAN IN PROGRESS'}
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h1 className="font-display" style={{ fontSize: 16, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.05em' }}>
+              {isComplete ? 'SCAN COMPLETE' : 'SCAN IN PROGRESS'}
+            </h1>
+            {isSimulated ? (
+              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', padding: '3px 7px', borderRadius: 4, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b' }}>
+                SIMULATED
+              </span>
+            ) : (
+              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', padding: '3px 7px', borderRadius: 4, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e' }}>
+                REAL SCAN
+              </span>
+            )}
+          </div>
           {isComplete && (
             <p style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
               {findings.filter(f => f.status !== 'verified_fixed').length} new findings
@@ -278,6 +289,33 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
           </div>
         ))}
       </div>
+
+      {/* Token usage / cost — shown for real scans after completion */}
+      {!isSimulated && isComplete && (scan as any).tokens_input > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
+          {[
+            { label: 'Tokens In', value: ((scan as any).tokens_input ?? 0).toLocaleString(), color: '#42a5f5' },
+            { label: 'Tokens Out', value: ((scan as any).tokens_output ?? 0).toLocaleString(), color: '#a78bfa' },
+            { label: 'Total Tokens', value: (((scan as any).tokens_input ?? 0) + ((scan as any).tokens_output ?? 0)).toLocaleString(), color: '#e2e8f0' },
+            { label: 'Scan Cost', value: `$${((scan as any).cost_usd ?? 0).toFixed(4)}`, color: '#22c55e' },
+          ].map(item => (
+            <div key={item.label} className="gs" style={{ padding: '12px 14px', borderRadius: 8, border: '1px solid rgba(34,197,94,0.1)' }}>
+              <p style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{item.label}</p>
+              <p style={{ fontSize: 13, color: item.color, fontWeight: 700, fontFamily: 'monospace' }}>{item.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Queued state for real scans — engine will pick up within 15s */}
+      {!isSimulated && scan.status === 'queued' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', marginBottom: 16, background: 'rgba(25,118,210,0.06)', border: '1px solid rgba(25,118,210,0.2)', borderRadius: 8 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#42a5f5', animation: 'pulse 1.5s infinite', display: 'inline-block', flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: '#64748b' }}>
+            Scan engine polling every 15 seconds — your scan will start automatically.
+          </span>
+        </div>
+      )}
 
       <div className="gs au1" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
