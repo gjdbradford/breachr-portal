@@ -20,7 +20,7 @@ const SEV_ORDER = ['critical', 'high', 'medium', 'low', 'info']
 const SEV_COLOR: Record<string, string> = {
   critical: '#ef4444', high: '#f97316', medium: '#f59e0b', low: '#3b82f6', info: '#64748b',
 }
-const STATUS_ALL = ['open', 'in_progress', 'remediated']
+const STATUS_ALL = ['open', 'in_progress', 'remediated', 'verified_fixed', 'accepted_risk']
 
 type SortKey = 'title' | 'severity' | 'cvss_score' | 'status' | 'created_at' | 'target' | 'scan_type' | 'owasp_category'
 type SortDir = 'asc' | 'desc'
@@ -189,11 +189,11 @@ export default function FindingsTable({ findings }: { findings: Finding[] }) {
         </div>
 
         {/* Status filter */}
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {STATUS_ALL.map(s => {
             const active = statuses.has(s)
-            const colors: Record<string, string> = { open: '#ef4444', in_progress: '#f59e0b', remediated: '#22c55e' }
-            const c = colors[s]
+            const colors: Record<string, string> = { open: '#ef4444', in_progress: '#f59e0b', remediated: '#22c55e', verified_fixed: '#4ade80', accepted_risk: '#8b5cf6' }
+            const c = colors[s] ?? '#64748b'
             return (
               <button
                 key={s}
@@ -402,15 +402,17 @@ function Chip({ label, color, onRemove }: { label: string; color: string; onRemo
 }
 
 function StatusPill({ status }: { status: string }) {
-  const map: Record<string, { color: string; bg: string }> = {
-    open:        { color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
-    in_progress: { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
-    remediated:  { color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
+  const map: Record<string, { color: string; bg: string; label?: string }> = {
+    open:           { color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
+    in_progress:    { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+    remediated:     { color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
+    verified_fixed: { color: '#4ade80', bg: 'rgba(74,222,128,0.1)', label: '✓ verified fixed' },
+    accepted_risk:  { color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)', label: 'accepted risk' },
   }
   const s = map[status] ?? { color: '#64748b', bg: 'rgba(100,116,139,0.1)' }
   return (
-    <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 3, color: s.color, background: s.bg }}>
-      {status.replace('_', ' ')}
+    <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 3, color: s.color, background: s.bg, whiteSpace: 'nowrap' }}>
+      {s.label ?? status.replace(/_/g, ' ')}
     </span>
   )
 }

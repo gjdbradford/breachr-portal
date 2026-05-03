@@ -36,7 +36,7 @@ export default async function DashboardPage() {
     supabase.from('findings').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('severity', 'critical').in('status', ['open', 'in_progress']),
     supabase.from('findings').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).in('status', ['open', 'in_progress']),
     supabase.from('findings').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-    supabase.from('findings').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'remediated'),
+    supabase.from('findings').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).in('status', ['remediated', 'verified_fixed']),
     supabase.from('scans').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('scan_type', 'tlpt').eq('status', 'complete'),
     supabase.from('audit_logs').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
     supabase.from('audit_logs').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).not('signature', 'is', null),
@@ -323,7 +323,7 @@ function DoraStatusPill({ status }: { status: string }) {
 function AuditRow({ log }: { log: any }) {
   const actionColors: Record<string, string> = {
     'scan.queued': '#3b82f6', 'scan.started': '#42a5f5',
-    'finding.discovered': '#f59e0b', 'scan.completed': '#22c55e',
+    'finding.discovered': '#f59e0b', 'finding.verified_fixed': '#22c55e', 'scan.completed': '#22c55e',
   }
   const color = actionColors[log.action] ?? '#64748b'
   let detail = ''

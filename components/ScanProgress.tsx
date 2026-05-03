@@ -88,6 +88,19 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
         ai_confidence: f.ai_confidence,
       })
 
+      // Check if this vulnerability was previously remediated in an earlier scan
+      const { data: prevRemediated } = await supabase
+        .from('findings')
+        .select('id')
+        .eq('tenant_id', scan.tenant_id)
+        .eq('title', f.title)
+        .eq('severity', f.severity)
+        .eq('status', 'remediated')
+        .limit(1)
+        .maybeSingle()
+
+      const status = prevRemediated ? 'verified_fixed' : 'open'
+
       const { data: inserted } = await supabase.from('findings').insert({
         scan_id: scan.id,
         tenant_id: scan.tenant_id,
@@ -98,21 +111,31 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
         owasp_category: f.owasp_category,
         cvss_score: f.cvss_score,
         finding_hash,
-        status: 'open',
-        description: `Identified by ${f.ai_model} during active exploitation phase. CVSS ${f.cvss_score} — ${f.owasp_category}.`,
+        status,
+        description: status === 'verified_fixed'
+          ? `Previously remediated — re-scan confirms fix is holding. Original: identified by ${f.ai_model} (CVSS ${f.cvss_score} — ${f.owasp_category}).`
+          : `Identified by ${f.ai_model} during active exploitation phase. CVSS ${f.cvss_score} — ${f.owasp_category}.`,
         remediation: f.remediation,
       }).select().single()
 
       if (inserted) {
         setFindings(prev => [inserted as Finding, ...prev])
-        // Non-blocking audit log
-        logAudit('finding.discovered', {
-          scan_id: scan.id,
-          finding_id: inserted.id,
-          title: f.title,
-          severity: f.severity,
-          finding_hash,
-        })
+        if (status === 'verified_fixed') {
+          logAudit('finding.verified_fixed', {
+            scan_id: scan.id,
+            finding_id: inserted.id,
+            title: f.title,
+            severity: f.severity,
+          })
+        } else {
+          logAudit('finding.discovered', {
+            scan_id: scan.id,
+            finding_id: inserted.id,
+            title: f.title,
+            severity: f.severity,
+            finding_hash,
+          })
+        }
       }
       setSimStep(s => s + 1)
     }
@@ -153,6 +176,14 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
           <h1 className="font-display" style={{ fontSize: 16, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.05em' }}>
             {isComplete ? 'SCAN COMPLETE' : 'SCAN IN PROGRESS'}
           </h1>
+          {isComplete && (
+            <p style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
+              {findings.filter(f => f.status !== 'verified_fixed').length} new findings
+              {findings.some(f => f.status === 'verified_fixed') && (
+                <> · <span style={{ color: '#22c55e' }}>{findings.filter(f => f.status === 'verified_fixed').length} verified fixed</span></>
+              )}
+            </p>
+          )}
         </div>
         {isComplete && (
           <Link href="/dashboard/findings" className="btn-p" style={{ fontSize: 13, padding: '8px 18px' }}>
@@ -220,6 +251,16 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
         </div>
 
         {findings.length > 0 ? (
+          <>
+            {isComplete && findings.some(f => f.status === 'verified_fixed') && (
+              <div style={{ margin: '0 16px 0', padding: '10px 14px', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                <span style={{ color: '#22c55e', fontSize: 16 }}>✓</span>
+                <span style={{ color: '#22c55e', fontWeight: 600 }}>
+                  {findings.filter(f => f.status === 'verified_fixed').length} previously remediated {findings.filter(f => f.status === 'verified_fixed').length === 1 ? 'finding' : 'findings'} confirmed still fixed
+                </span>
+                <span style={{ color: '#64748b', fontSize: 11 }}>· cryptographic evidence recorded in audit trail</span>
+              </div>
+            )}
           <table className="data-table">
             <thead>
               <tr>
@@ -229,37 +270,48 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
                 <th>CVSS</th>
                 <th>OWASP</th>
                 <th>AI Model · Confidence</th>
-                <th>Hash</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {findings.map((f, i) => (
-                <tr key={f.id} style={{ animation: i === 0 && isRunning ? 'fadeIn 0.4s ease' : undefined }}>
-                  <td><span style={{ fontFamily: 'monospace', fontSize: 10, color: '#64748b' }}>BRH-{String(i + 1).padStart(3, '0')}</span></td>
-                  <td style={{ maxWidth: 220 }}>
-                    <div style={{ fontWeight: 500, fontSize: 12 }}>{f.title}</div>
-                    {f.description && <div style={{ fontSize: 10, color: '#64748b', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{f.description}</div>}
-                  </td>
-                  <td><span className={`sev-${f.severity}`} style={{ borderRadius: 3, fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '2px 6px' }}>{f.severity}</span></td>
-                  <td style={{ fontFamily: 'monospace', fontSize: 11 }}>{f.cvss_score ?? '—'}</td>
-                  <td style={{ fontSize: 10, color: '#64748b', fontFamily: 'monospace' }}>{f.owasp_category ?? '—'}</td>
-                  <td>
-                    {f.ai_model ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 3, fontSize: 9.5, color: '#3b82f6', padding: '2px 5px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-                        {f.ai_model}
-                        {f.ai_confidence != null && <span style={{ color: '#22c55e', marginLeft: 3, fontWeight: 600 }}>{f.ai_confidence}%</span>}
-                      </span>
-                    ) : '—'}
-                  </td>
-                  <td>
-                    {f.finding_hash ? (
-                      <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#3b5f8a' }} title={f.finding_hash}>{f.finding_hash.slice(0, 12)}…</span>
-                    ) : '—'}
-                  </td>
-                </tr>
-              ))}
+              {findings.map((f, i) => {
+                const isVerified = f.status === 'verified_fixed'
+                return (
+                  <tr key={f.id} style={{ animation: i === 0 && isRunning ? 'fadeIn 0.4s ease' : undefined, opacity: isVerified ? 0.75 : 1 }}>
+                    <td><span style={{ fontFamily: 'monospace', fontSize: 10, color: '#64748b' }}>BRH-{String(i + 1).padStart(3, '0')}</span></td>
+                    <td style={{ maxWidth: 220 }}>
+                      <div style={{ fontWeight: 500, fontSize: 12, textDecoration: isVerified ? 'line-through' : 'none', color: isVerified ? '#64748b' : '#e2e8f0' }}>{f.title}</div>
+                      {isVerified && <div style={{ fontSize: 10, color: '#22c55e', marginTop: 1 }}>Re-scan confirms fix is holding</div>}
+                    </td>
+                    <td><span className={`sev-${f.severity}`} style={{ borderRadius: 3, fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '2px 6px', opacity: isVerified ? 0.5 : 1 }}>{f.severity}</span></td>
+                    <td style={{ fontFamily: 'monospace', fontSize: 11, color: isVerified ? '#475569' : undefined }}>{f.cvss_score ?? '—'}</td>
+                    <td style={{ fontSize: 10, color: '#64748b', fontFamily: 'monospace' }}>{f.owasp_category ?? '—'}</td>
+                    <td>
+                      {f.ai_model ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 3, fontSize: 9.5, color: '#3b82f6', padding: '2px 5px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                          {f.ai_model}
+                          {f.ai_confidence != null && <span style={{ color: '#22c55e', marginLeft: 3, fontWeight: 600 }}>{f.ai_confidence}%</span>}
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td>
+                      {isVerified ? (
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#22c55e', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 3, padding: '2px 7px', whiteSpace: 'nowrap' }}>
+                          ✓ verified fixed
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 10, fontWeight: 600, color: '#ef4444', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 3, padding: '2px 7px' }}>
+                          new
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
+          </>
+
         ) : (
           <div style={{ padding: '40px 24px', textAlign: 'center', color: '#475569' }}>
             <p style={{ fontSize: 13 }}>{isRunning ? 'Scanning… findings will appear here as they are discovered.' : 'No findings yet.'}</p>

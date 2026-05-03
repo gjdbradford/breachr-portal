@@ -58,7 +58,7 @@ export interface Finding {
   severity: 'critical' | 'high' | 'medium' | 'low' | 'info'
   cvss_score: number | null
   owasp_category: string | null
-  status: string
+  status: 'open' | 'in_progress' | 'remediated' | 'verified_fixed' | 'accepted_risk' | string
   ai_model: string | null
   ai_confidence: number | null
   finding_hash: string | null
