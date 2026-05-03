@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -65,7 +66,7 @@ export default function LaunchScanButton({ surfaces, tenantId }: { surfaces: Sur
         + Launch Scan
       </button>
 
-      {open && (
+      {open && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(7,11,20,0.88)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 24px', overflowY: 'auto' }}>
           <div style={{ background: '#0d1428', border: '1px solid rgba(25,118,210,0.3)', borderRadius: 16, width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column' }}>
             {/* Fixed header */}
@@ -143,7 +144,7 @@ export default function LaunchScanButton({ surfaces, tenantId }: { surfaces: Sur
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </>
   )
 }
