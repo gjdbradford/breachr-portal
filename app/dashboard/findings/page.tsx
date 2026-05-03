@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import Link from 'next/link'
 
 const SEV_ORDER = ['critical', 'high', 'medium', 'low', 'info']
 
@@ -57,8 +58,12 @@ export default async function FindingsPage() {
             </thead>
             <tbody>
               {findings.map((f: any) => (
-                <tr key={f.id}>
-                  <td style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.title}</td>
+                <tr key={f.id} style={{ cursor: 'pointer' }}>
+                  <td style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <Link href={`/dashboard/findings/${f.id}`} style={{ color: 'inherit', textDecoration: 'none', fontWeight: 500 }}>
+                      {f.title}
+                    </Link>
+                  </td>
                   <td><span className={`sev-${f.severity}`}>{f.severity}</span></td>
                   <td style={{ fontVariantNumeric: 'tabular-nums' }}>{f.cvss_score ?? '—'}</td>
                   <td style={{ fontSize: 11, color: '#64748b' }}>{f.owasp_category ?? '—'}</td>
