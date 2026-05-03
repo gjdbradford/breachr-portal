@@ -66,16 +66,16 @@ export default function LaunchScanButton({ surfaces, tenantId }: { surfaces: Sur
       </button>
 
       {open && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(7,11,20,0.88)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div style={{ background: '#0d1428', border: '1px solid rgba(25,118,210,0.3)', borderRadius: 16, width: '100%', maxWidth: 480, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(7,11,20,0.88)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 24px', overflowY: 'auto' }}>
+          <div style={{ background: '#0d1428', border: '1px solid rgba(25,118,210,0.3)', borderRadius: 16, width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column' }}>
             {/* Fixed header */}
             <div style={{ padding: '24px 28px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               <h2 className="font-display" style={{ fontSize: 16, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.05em', marginBottom: 2 }}>LAUNCH SCAN</h2>
               <p style={{ fontSize: 12, color: '#64748b' }}>Configure your penetration test parameters.</p>
             </div>
 
-            {/* Scrollable body */}
-            <div style={{ overflowY: 'auto', flex: 1, padding: '20px 28px' }}>
+            {/* Body */}
+            <div style={{ padding: '20px 28px' }}>
 
               {/* Target — most important, shown first and prominently */}
               <div style={{ marginBottom: 20 }}>
