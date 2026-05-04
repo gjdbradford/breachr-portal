@@ -4,19 +4,40 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { getPlan, fmtTokens } from '@/lib/plans'
 
 const links = [
-  { href: '/dashboard', label: 'Overview', icon: '◈' },
-  { href: '/dashboard/targets', label: 'Targets', icon: '◎' },
-  { href: '/dashboard/scans', label: 'Scans', icon: '⟳' },
-  { href: '/dashboard/findings', label: 'Findings', icon: '⚠' },
-  { href: '/dashboard/reports', label: 'Reports', icon: '▤' },
-  { href: '/dashboard/audit', label: 'Audit Trail', icon: '⛓' },
+  { href: '/dashboard',          label: 'Overview',    icon: '◈' },
+  { href: '/dashboard/targets',  label: 'Targets',     icon: '◎' },
+  { href: '/dashboard/scans',    label: 'Scans',       icon: '⟳' },
+  { href: '/dashboard/findings', label: 'Findings',    icon: '⚠' },
+  { href: '/dashboard/reports',  label: 'Reports',     icon: '▤' },
+  { href: '/dashboard/audit',    label: 'Audit Trail', icon: '⛓' },
 ]
 
-export default function DashboardNav({ tenantName }: { tenantName: string }) {
+export default function DashboardNav({
+  tenantName,
+  plan: planId = 'free',
+  scansThisMonth = 0,
+  scansLimit = 3,
+  tokensThisMonth = 0,
+  tokensLimit = 200000,
+}: {
+  tenantName: string
+  plan?: string
+  scansThisMonth?: number
+  scansLimit?: number
+  tokensThisMonth?: number
+  tokensLimit?: number
+}) {
   const pathname = usePathname()
   const router = useRouter()
+  const plan = getPlan(planId)
+
+  const scansPct   = scansLimit   ? Math.min(100, (scansThisMonth / scansLimit) * 100)     : 0
+  const tokensPct  = tokensLimit  ? Math.min(100, (tokensThisMonth / tokensLimit) * 100)    : 0
+  const scansNear  = scansPct >= 80
+  const tokensNear = tokensPct >= 80
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -50,7 +71,55 @@ export default function DashboardNav({ tenantName }: { tenantName: string }) {
         })}
       </nav>
 
-      <div style={{ padding: '12px 12px 24px' }}>
+      {/* Plan usage widget */}
+      <div style={{ margin: '0 12px 12px', padding: '12px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+        {/* Plan badge + upgrade link */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: plan.color, display: 'inline-block' }} />
+            <span style={{ fontSize: 10, fontWeight: 700, color: plan.color, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{plan.label}</span>
+          </div>
+          {planId !== 'enterprise' && (
+            <Link href="/dashboard/upgrade" style={{ fontSize: 9, color: '#42a5f5', textDecoration: 'none', fontWeight: 600, letterSpacing: '0.04em' }}>
+              Upgrade ↑
+            </Link>
+          )}
+        </div>
+
+        {/* Scans meter */}
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+            <span style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Scans</span>
+            <span style={{ fontSize: 9, fontFamily: 'monospace', color: scansNear ? '#f59e0b' : '#64748b' }}>
+              {scansThisMonth} / {scansLimit}
+            </span>
+          </div>
+          <div style={{ height: 3, background: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${scansPct}%`, background: scansPct >= 100 ? '#ef4444' : scansNear ? '#f59e0b' : '#42a5f5', borderRadius: 2, transition: 'width 0.4s' }} />
+          </div>
+        </div>
+
+        {/* Tokens meter */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+            <span style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Tokens</span>
+            <span style={{ fontSize: 9, fontFamily: 'monospace', color: tokensNear ? '#f59e0b' : '#64748b' }}>
+              {fmtTokens(tokensThisMonth)} / {fmtTokens(tokensLimit)}
+            </span>
+          </div>
+          <div style={{ height: 3, background: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${tokensPct}%`, background: tokensPct >= 100 ? '#ef4444' : tokensNear ? '#f59e0b' : '#a78bfa', borderRadius: 2, transition: 'width 0.4s' }} />
+          </div>
+        </div>
+
+        {(scansNear || tokensNear) && (
+          <Link href="/dashboard/upgrade" style={{ display: 'block', marginTop: 8, fontSize: 9, color: '#f59e0b', textDecoration: 'none', textAlign: 'center', padding: '4px 0', borderRadius: 4, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+            ⚡ Approaching limit — upgrade
+          </Link>
+        )}
+      </div>
+
+      <div style={{ padding: '0 12px 24px' }}>
         <button
           onClick={handleSignOut}
           className="sidebar-link"

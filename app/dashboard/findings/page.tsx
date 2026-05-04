@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import FindingsTable from '@/components/FindingsTable'
 
@@ -24,7 +25,10 @@ export default async function FindingsPage() {
           <p style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>{findings?.length ?? 0} total findings across all scans</p>
         </div>
       </div>
-      <FindingsTable findings={findings ?? []} />
+      {/* Suspense required for useSearchParams in FindingsTable */}
+      <Suspense fallback={<div style={{ color: '#64748b', padding: 24 }}>Loading…</div>}>
+        <FindingsTable findings={findings ?? []} />
+      </Suspense>
     </div>
   )
 }
