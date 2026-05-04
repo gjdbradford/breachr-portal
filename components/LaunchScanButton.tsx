@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { getPlan, fmtTokens, type PlanId } from '@/lib/plans'
+import UpgradeWallModal from '@/components/UpgradeWallModal'
 
 interface Surface { id: string; name: string; target_url: string }
 
@@ -58,6 +58,7 @@ export default function LaunchScanButton({
   tokensThisMonth?: number
 }) {
   const [open, setOpen] = useState(false)
+  const [showUpgradeWall, setShowUpgradeWall] = useState(false)
   const [surfaceId, setSurfaceId] = useState(surfaces[0]?.id ?? '')
   const [scanType, setScanType] = useState('full')
   const [loading, setLoading] = useState(false)
@@ -85,7 +86,7 @@ export default function LaunchScanButton({
   const blocked = overScanLimit || overTokenLimit
 
   function openModal() {
-    // If current scanType isn't available on plan, reset to first available
+    if (blocked) { setShowUpgradeWall(true); return }
     if (!plan.scanTypes.includes(scanType) && availableScanTypes[0]) {
       setScanType(availableScanTypes[0].id)
     }
@@ -94,47 +95,57 @@ export default function LaunchScanButton({
 
   async function handleLaunch() {
     setLoading(true)
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('scans')
-      .insert({
-        tenant_id: tenantId,
-        attack_surface_id: surfaceId,
-        scan_type: scanType,
-        status: 'queued',
-        model_used: 'claude-sonnet-4-6',
-        tests_total: estTokensNeeded,
-        tests_run: 0,
-        progress_pct: 0,
-        current_phase: 'queued',
-      })
-      .select('id')
-      .single()
+    const res = await fetch('/api/scans/launch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ attack_surface_id: surfaceId, scan_type: scanType }),
+    })
+    const json = await res.json()
 
-    if (!error && data) {
-      // Increment scans_this_month (best-effort via raw SQL update)
-      void supabase.from('tenants').update({ scans_this_month: (scansThisMonth ?? 0) + 1 }).eq('id', tenantId)
-
-      fetch('/api/audit/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'scan.queued',
-          detail: { scan_id: data.id, scan_type: scanType, model: 'claude-sonnet-4-6', surface_id: surfaceId },
-        }),
-      }).catch(() => {})
-      setOpen(false)
-      router.push(`/dashboard/scans/${data.id}`)
-    } else {
+    if (res.status === 429) {
+      // Server confirmed limit hit — show upgrade wall
       setLoading(false)
+      setOpen(false)
+      setShowUpgradeWall(true)
+      return
     }
+
+    if (!res.ok) {
+      setLoading(false)
+      return
+    }
+
+    fetch('/api/audit/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'scan.queued',
+        detail: { scan_id: json.scanId, scan_type: scanType, model: 'claude-sonnet-4-6', surface_id: surfaceId },
+      }),
+    }).catch(() => {})
+    setOpen(false)
+    router.push(`/dashboard/scans/${json.scanId}`)
   }
+
+  const upgradeReason = overScanLimit ? 'scan_limit' : 'token_limit'
 
   return (
     <>
       <button onClick={openModal} className="btn-p" style={{ fontSize: 13, padding: '8px 18px' }}>
         + Launch Scan
       </button>
+
+      {showUpgradeWall && (
+        <UpgradeWallModal
+          reason={upgradeReason}
+          currentPlanId={planId ?? 'free'}
+          scansUsed={scansUsed}
+          scansLimit={scansLimit}
+          tokensUsed={tokensUsed}
+          tokensLimit={tokensLimit}
+          onClose={() => setShowUpgradeWall(false)}
+        />
+      )}
 
       {open && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(7,11,20,0.88)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '16px 24px 24px', overflowY: 'auto' }}>
@@ -301,13 +312,13 @@ export default function LaunchScanButton({
             <div style={{ padding: '14px 28px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 10, alignItems: 'center' }}>
               <button onClick={() => setOpen(false)} className="btn-s" style={{ flex: 1 }}>Cancel</button>
               {blocked ? (
-                <a
-                  href="/dashboard/upgrade"
+                <button
+                  onClick={() => { setOpen(false); setShowUpgradeWall(true) }}
                   className="btn-p"
-                  style={{ flex: 2, textAlign: 'center', textDecoration: 'none', opacity: 1 }}
+                  style={{ flex: 2 }}
                 >
                   Upgrade Plan →
-                </a>
+                </button>
               ) : (
                 <button
                   onClick={handleLaunch}
