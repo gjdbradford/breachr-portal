@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import DashboardNav from '@/components/DashboardNav'
+import SurveyBanner from '@/components/SurveyBanner'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -34,6 +35,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <main className="portal-main">
         {children}
       </main>
+      <SurveyBanner />
     </div>
   )
 }
