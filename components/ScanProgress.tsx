@@ -31,19 +31,26 @@ const MODEL_DISPLAY: Record<string, string> = {
 
 const SIMULATED_FINDINGS = [
   { title: 'SQL Injection — login endpoint',        severity: 'critical', ai_model: 'Claude Opus 4',  ai_confidence: 94.2, owasp_category: 'A03:2021', cvss_score: 9.1,
-    remediation: 'Use parameterised queries or prepared statements. Never concatenate user input into SQL strings. Apply input validation and least-privilege DB accounts. Consider a WAF rule for short-term mitigation.' },
+    remediation: 'Use parameterised queries or prepared statements. Never concatenate user input into SQL strings. Apply input validation and least-privilege DB accounts. Consider a WAF rule for short-term mitigation.',
+    replication_steps: '1. Navigate to /login in a browser\n2. In the username field, enter: \' OR \'1\'=\'1\' --\n3. Enter any value for the password field\n4. Submit the form\n5. Observe that login succeeds without valid credentials\n6. Alternatively, run: curl -X POST https://target.com/login -d "username=\' OR 1=1 --&password=x" and observe a 200 response with a session token' },
   { title: 'IDOR — user profile enumeration',       severity: 'high',     ai_model: 'Llama 3.1 70B', ai_confidence: 89.7, owasp_category: 'A01:2021', cvss_score: 7.5,
-    remediation: 'Enforce server-side authorisation on every object access. Replace sequential IDs with UUIDs. Validate that the authenticated user owns the requested resource before returning data.' },
+    remediation: 'Enforce server-side authorisation on every object access. Replace sequential IDs with UUIDs. Validate that the authenticated user owns the requested resource before returning data.',
+    replication_steps: '1. Log in as a legitimate user and capture your profile request in Burp Suite or browser DevTools\n2. Note the numeric user ID in the URL, e.g. GET /api/users/1042/profile\n3. Change the ID to an adjacent integer: GET /api/users/1041/profile\n4. Send the request: curl -H "Authorization: Bearer <your_token>" https://target.com/api/users/1041/profile\n5. Observe that another user\'s PII (name, email, address) is returned with HTTP 200' },
   { title: 'Authentication bypass via JWT forgery', severity: 'critical', ai_model: 'Claude Opus 4',  ai_confidence: 91.8, owasp_category: 'A07:2021', cvss_score: 9.8,
-    remediation: 'Reject tokens signed with the "none" algorithm. Enforce RS256 or ES256 with a pinned public key. Validate iss, aud, and exp claims. Rotate signing keys immediately.' },
+    remediation: 'Reject tokens signed with the "none" algorithm. Enforce RS256 or ES256 with a pinned public key. Validate iss, aud, and exp claims. Rotate signing keys immediately.',
+    replication_steps: '1. Obtain a valid JWT token by logging in normally\n2. Decode the token header using: echo "<header_b64>" | base64 -d\n3. Modify the header to set "alg": "none"\n4. Craft a new token with an elevated role in the payload (e.g. "role": "admin")\n5. Send the forged token: curl -H "Authorization: Bearer <forged_token>" https://target.com/api/admin/users\n6. Observe that the server accepts the token and returns admin-level data' },
   { title: 'Missing security headers (CSP/HSTS)',   severity: 'medium',   ai_model: 'Mistral 7B',     ai_confidence: 87.3, owasp_category: 'A05:2021', cvss_score: 4.3,
-    remediation: 'Add Content-Security-Policy, Strict-Transport-Security (max-age≥31536000; includeSubDomains), X-Frame-Options: DENY, and X-Content-Type-Options: nosniff headers on all responses.' },
+    remediation: 'Add Content-Security-Policy, Strict-Transport-Security (max-age≥31536000; includeSubDomains), X-Frame-Options: DENY, and X-Content-Type-Options: nosniff headers on all responses.',
+    replication_steps: '1. Run: curl -I https://target.com/\n2. Inspect the response headers in the output\n3. Confirm absence of Strict-Transport-Security header\n4. Confirm absence of Content-Security-Policy header\n5. Alternatively, open https://securityheaders.com and enter the target URL to get a full report' },
   { title: 'Exposed API key in JS bundle',          severity: 'high',     ai_model: 'Llama 3.1 70B', ai_confidence: 96.1, owasp_category: 'A02:2021', cvss_score: 8.2,
-    remediation: 'Revoke the exposed key immediately. Move all secrets to server-side environment variables. Audit git history for historical exposure. Use a secrets scanner in CI to prevent recurrence.' },
+    remediation: 'Revoke the exposed key immediately. Move all secrets to server-side environment variables. Audit git history for historical exposure. Use a secrets scanner in CI to prevent recurrence.',
+    replication_steps: '1. Open the target site in a browser and navigate to DevTools → Sources\n2. Search all JS files for common key patterns: Ctrl+Shift+F, search for "sk_live", "AKIA", "api_key", or "secret"\n3. Alternatively, run: curl https://target.com/static/main.js | grep -oE "[A-Za-z0-9_]{20,}"\n4. Identify the exposed credential and validate it against the relevant API (e.g. AWS, Stripe)\n5. Use the key to make an authenticated API call and confirm it grants access' },
   { title: 'SSRF via webhook URL parameter',        severity: 'high',     ai_model: 'Claude Opus 4',  ai_confidence: 88.4, owasp_category: 'A10:2021', cvss_score: 7.1,
-    remediation: 'Validate webhook URLs against an allowlist of approved domains. Block requests to RFC-1918 ranges (10.x, 172.16.x, 192.168.x) and link-local addresses. Use an outbound proxy to enforce egress policy.' },
+    remediation: 'Validate webhook URLs against an allowlist of approved domains. Block requests to RFC-1918 ranges (10.x, 172.16.x, 192.168.x) and link-local addresses. Use an outbound proxy to enforce egress policy.',
+    replication_steps: '1. Find the webhook configuration endpoint, e.g. POST /api/webhooks\n2. Set up a listener at an internal IP: use http://169.254.169.254/latest/meta-data/ (AWS metadata) as the target\n3. Send: curl -X POST https://target.com/api/webhooks -H "Content-Type: application/json" -d \'{"url":"http://169.254.169.254/latest/meta-data/"}\'\n4. Observe the response — if the server fetches the URL and returns contents, SSRF is confirmed\n5. Alternatively, use a Burp Collaborator or ngrok URL to detect out-of-band DNS/HTTP callbacks' },
   { title: 'Cross-site request forgery on /transfer', severity: 'medium', ai_model: 'Multi-Model',    ai_confidence: 92.0, owasp_category: 'A01:2021', cvss_score: 6.5,
-    remediation: 'Implement synchronised CSRF tokens (Double Submit Cookie pattern) on all state-changing endpoints. Validate Origin and Referer headers. Use SameSite=Strict on session cookies.' },
+    remediation: 'Implement synchronised CSRF tokens (Double Submit Cookie pattern) on all state-changing endpoints. Validate Origin and Referer headers. Use SameSite=Strict on session cookies.',
+    replication_steps: '1. Log in as a legitimate user and open DevTools → Network\n2. Perform a transfer action and capture the POST /transfer request\n3. Note whether a CSRF token is present in the request body or headers\n4. Create an HTML page on an attacker-controlled domain:\n   <form action="https://target.com/transfer" method="POST"><input name="amount" value="1000"/><input name="to" value="attacker_account"/></form><script>document.forms[0].submit()</script>\n5. Open the page while logged in to the target site — if the transfer succeeds without a CSRF token, the vulnerability is confirmed' },
 ]
 
 async function logAudit(action: string, detail: object) {
@@ -66,7 +73,10 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
   const [connState, setConnState] = useState<ConnState>('connecting')
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
   const [syncing, setSyncing] = useState(false)
-  const supabase = createClient()
+  // Stable client across renders — createClient() must not be called at component level
+  // because it creates a new SupabaseClient each time, tearing down Realtime subscriptions.
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   const surface = scan.attack_surfaces as any
   const isSimulated = SIMULATED_MODEL_IDS.has(scan.model_used ?? '')
@@ -86,6 +96,14 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
     setLastSyncAt(new Date())
     setSyncing(false)
   }, [scan.id, supabase, router])
+
+  // For real scans that are already complete when the user navigates to this page,
+  // trigger a router.refresh() on mount so the nav scan counter updates.
+  useEffect(() => {
+    if (!isSimulated && (initialScan.status === 'complete' || initialScan.status === 'failed')) {
+      router.refresh()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Real scan mode: Supabase Realtime subscription with connection state tracking
   useEffect(() => {
@@ -121,10 +139,8 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setConnState('disconnected')
       })
 
-    // Periodic fallback poll every 30s if Realtime drops
-    const fallbackInterval = setInterval(() => {
-      if (connState === 'disconnected') syncNow()
-    }, 30_000)
+    // Fallback poll every 5s — runs syncNow if Realtime has dropped or as a safety net
+    const fallbackInterval = setInterval(syncNow, 5_000)
 
     return () => {
       supabase.removeChannel(channel)
@@ -190,6 +206,7 @@ export default function ScanProgress({ scan: initialScan, initialFindings }: { s
           ? `Previously remediated — re-scan confirms fix is holding. Original: identified by ${f.ai_model} (CVSS ${f.cvss_score} — ${f.owasp_category}).`
           : `Identified by ${f.ai_model} during active exploitation phase. CVSS ${f.cvss_score} — ${f.owasp_category}.`,
         remediation: f.remediation,
+        replication_steps: f.replication_steps ?? '',
       }).select().single()
 
       if (inserted) {

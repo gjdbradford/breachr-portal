@@ -24,6 +24,8 @@ export default function DashboardNav({
   tokensThisMonth = 0,
   tokensLimit = 200000,
   isSuperuser = false,
+  tenantId,
+  initialActiveScans = 0,
 }: {
   tenantName: string
   plan?: string
@@ -32,10 +34,36 @@ export default function DashboardNav({
   tokensThisMonth?: number
   tokensLimit?: number
   isSuperuser?: boolean
+  tenantId?: string
+  initialActiveScans?: number
 }) {
   const pathname = usePathname()
   const router = useRouter()
   const plan = getPlan(planId)
+  const [activeScans, setActiveScans] = useState(initialActiveScans)
+
+  useEffect(() => {
+    if (!tenantId) return
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`nav-scans-${tenantId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'scans', filter: `tenant_id=eq.${tenantId}`,
+      }, () => {
+        supabase
+          .from('scans')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId)
+          .in('status', ['queued', 'running'])
+          .then(({ count }) => {
+            const newCount = count ?? 0
+            if (newCount === 0 && activeScans > 0) router.refresh()
+            setActiveScans(newCount)
+          })
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [tenantId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const scansPct   = scansLimit   ? Math.min(100, (scansThisMonth / scansLimit) * 100)     : 0
   const tokensPct  = tokensLimit  ? Math.min(100, (tokensThisMonth / tokensLimit) * 100)    : 0
@@ -65,10 +93,22 @@ export default function DashboardNav({
       <nav style={{ flex: 1, padding: '8px 12px' }}>
         {links.map(({ href, label, icon }) => {
           const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
+          const showBadge = href === '/dashboard/scans' && activeScans > 0
           return (
             <Link key={href} href={href} className={`sidebar-link${active ? ' active' : ''}`}>
               <span style={{ fontSize: 16, width: 20, textAlign: 'center' }}>{icon}</span>
-              <span>{label}</span>
+              <span style={{ flex: 1 }}>{label}</span>
+              {showBadge && (
+                <span style={{
+                  minWidth: 18, height: 18, borderRadius: 9, padding: '0 5px',
+                  background: '#42a5f5', color: '#0a0e1a',
+                  fontSize: 10, fontWeight: 800, fontFamily: 'monospace',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  animation: 'pulse 1.5s infinite',
+                }}>
+                  {activeScans}
+                </span>
+              )}
             </Link>
           )
         })}

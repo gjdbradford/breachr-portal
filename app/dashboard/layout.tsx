@@ -22,6 +22,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .eq('id', profile.tenant_id)
     .single()
 
+  const { count: activeScansCount } = await supabase
+    .from('scans')
+    .select('id', { count: 'exact', head: true })
+    .eq('tenant_id', profile.tenant_id)
+    .in('status', ['queued', 'running'])
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#0a0e1a' }}>
       <DashboardNav
@@ -32,6 +38,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         tokensThisMonth={tenant?.tokens_used_this_month ?? 0}
         tokensLimit={tenant?.plan_tokens_limit ?? 200000}
         isSuperuser={profile.is_superuser ?? false}
+        tenantId={profile.tenant_id}
+        initialActiveScans={activeScansCount ?? 0}
       />
       <main className="portal-main">
         {children}
