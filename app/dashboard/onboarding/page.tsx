@@ -4,7 +4,25 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-type Step = 1 | 2 | 3
+type Step = 1 | 2 | 3 | 4
+
+const ALL_FRAMEWORKS = ['DORA', 'NIS2', 'PCI-DSS'] as const
+type Framework = typeof ALL_FRAMEWORKS[number]
+
+const FRAMEWORK_LABELS: Record<Framework, { name: string; description: string }> = {
+  'DORA':    { name: 'DORA', description: 'EU Digital Operational Resilience Act — mandatory for financial entities operating in the EU.' },
+  'NIS2':    { name: 'NIS2', description: 'EU Network & Information Security Directive — applies to essential and important sector entities.' },
+  'PCI-DSS': { name: 'PCI-DSS', description: 'Payment Card Industry Data Security Standard — required if you process, store or transmit card data.' },
+}
+
+const INDUSTRY_FRAMEWORKS: Record<string, Framework[]> = {
+  banking:    ['DORA', 'NIS2', 'PCI-DSS'],
+  insurance:  ['DORA', 'NIS2'],
+  payments:   ['DORA', 'NIS2', 'PCI-DSS'],
+  healthtech: ['NIS2'],
+  energy:     ['NIS2'],
+  other:      [],
+}
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -19,6 +37,9 @@ export default function OnboardingPage() {
 
   // Step 2: target URLs
   const [targets, setTargets] = useState([{ name: '', url: '', type: 'webapp' }])
+
+  // Step 3: compliance frameworks
+  const [selectedFrameworks, setSelectedFrameworks] = useState<Framework[]>([])
 
   async function handleStep1(e: React.FormEvent) {
     e.preventDefault()
@@ -60,8 +81,36 @@ export default function OnboardingPage() {
 
     const { error } = await supabase.from('attack_surfaces').insert(rows)
     if (error) { setError(error.message); setLoading(false); return }
+    setSelectedFrameworks(INDUSTRY_FRAMEWORKS[industry] ?? [])
     setStep(3)
     setLoading(false)
+  }
+
+  async function handleStep3(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { router.push('/login'); return }
+
+    const { data: profile } = await supabase.from('users').select('tenant_id').eq('id', user.id).single()
+    if (!profile) { setError('Profile not found'); setLoading(false); return }
+
+    const { error } = await supabase
+      .from('tenants')
+      .update({ compliance_frameworks: selectedFrameworks })
+      .eq('id', profile.tenant_id)
+
+    if (error) { setError(error.message); setLoading(false); return }
+    setStep(4)
+    setLoading(false)
+  }
+
+  function toggleFramework(fw: Framework) {
+    setSelectedFrameworks(prev =>
+      prev.includes(fw) ? prev.filter(f => f !== fw) : [...prev, fw]
+    )
   }
 
   async function handleFinish() {
@@ -90,7 +139,7 @@ export default function OnboardingPage() {
       <div className="onboarding-card">
         {/* Steps indicator */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 32 }}>
-          {([1, 2, 3] as Step[]).map(s => (
+          {([1, 2, 3, 4] as Step[]).map(s => (
             <div key={s} className={`onboarding-step-dot${step >= s ? ' active' : ''}`} />
           ))}
         </div>
@@ -181,6 +230,60 @@ export default function OnboardingPage() {
         )}
 
         {step === 3 && (
+          <>
+            <h2 className="font-display" style={{ fontSize: 18, fontWeight: 700, color: '#e2e8f0', marginBottom: 6, letterSpacing: '0.05em' }}>
+              SELECT COMPLIANCE FRAMEWORKS
+            </h2>
+            <p style={{ color: '#64748b', fontSize: 13, marginBottom: 24 }}>
+              We&apos;ve recommended frameworks based on your industry. Adjust as needed.
+            </p>
+
+            <form onSubmit={handleStep3}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+                {ALL_FRAMEWORKS.map(fw => {
+                  const selected = selectedFrameworks.includes(fw)
+                  return (
+                    <button
+                      key={fw}
+                      type="button"
+                      onClick={() => toggleFramework(fw)}
+                      style={{
+                        display: 'flex', alignItems: 'flex-start', gap: 12, padding: 16,
+                        background: selected ? 'rgba(25,118,210,0.1)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${selected ? 'rgba(25,118,210,0.5)' : 'rgba(255,255,255,0.06)'}`,
+                        borderRadius: 8, cursor: 'pointer', textAlign: 'left', width: '100%',
+                      }}
+                    >
+                      <div style={{
+                        width: 18, height: 18, borderRadius: 4, flexShrink: 0, marginTop: 2,
+                        background: selected ? '#1976d2' : 'transparent',
+                        border: `2px solid ${selected ? '#1976d2' : '#475569'}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {selected && (
+                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                            <path d="M1.5 5L4 7.5L8.5 2.5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                      <div>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', marginBottom: 4 }}>{FRAMEWORK_LABELS[fw].name}</p>
+                        <p style={{ fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>{FRAMEWORK_LABELS[fw].description}</p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {error && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 16 }}>{error}</p>}
+              <button type="submit" className="btn-p" style={{ width: '100%' }} disabled={loading}>
+                {loading ? 'Saving…' : 'Continue →'}
+              </button>
+            </form>
+          </>
+        )}
+
+        {step === 4 && (
           <>
             <div style={{ textAlign: 'center' }}>
               <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg,#1976d2,#42a5f5)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
