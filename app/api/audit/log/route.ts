@@ -4,7 +4,7 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { createHmac } from 'crypto'
 import { sha256Hex, GENESIS_HASH } from '@/lib/audit'
 
-const VALID_ACTIONS = ['scan.queued', 'scan.started', 'finding.discovered', 'finding.verified_fixed', 'scan.completed'] as const
+const VALID_ACTIONS = ['scan.queued', 'scan.started', 'finding.discovered', 'finding.verified_fixed', 'scan.completed', 'report.viewed'] as const
 
 function hmacSha256Hex(key: string, data: string): string {
   return createHmac('sha256', Buffer.from(key, 'hex')).update(data, 'utf8').digest('hex')
