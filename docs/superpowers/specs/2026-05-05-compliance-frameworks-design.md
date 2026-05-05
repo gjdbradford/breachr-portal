@@ -155,7 +155,35 @@ New page. Read-only — snapshot data, no editing.
 
 ---
 
-## 8. What's Not In Scope (v1)
+## 8. Security & DORA Cryptographic Compliance
+
+### Encryption at rest
+Supabase enforces AES-256 disk-level encryption on all data including `compliance_reports` and `findings_snapshot`. This satisfies DORA Art.9(4)(c)'s "where appropriate" cryptographic requirement for internal operational data. Application-layer field-level encryption on `findings_snapshot` is explicitly **not** used: it would require storing the decryption key in the same infrastructure (no meaningful security gain), breaks jsonb queryability, and adds operational complexity disproportionate to the risk. This decision is documented here as the auditable rationale for regulators.
+
+### Encryption in transit
+Supabase enforces TLS 1.2/1.3 on all connections. No plaintext access is possible.
+
+### Access control (Row-Level Security)
+An explicit RLS policy must be applied to `compliance_reports`:
+```sql
+CREATE POLICY "tenant_isolation" ON compliance_reports
+  FOR ALL USING (tenant_id = (
+    SELECT tenant_id FROM users WHERE id = auth.uid()
+  ));
+```
+Without this, any authenticated user can query any tenant's reports. This is a security requirement, not optional.
+
+### Audit logging
+DORA requires evidence of who accessed what and when. Every view of a report detail page must write an entry to the audit log (table: `audit_log` or equivalent — confirm existing schema). Log entry: `{ action: 'report.viewed', resource_id: report_id, user_id, tenant_id, timestamp }`.
+
+### Data retention
+DORA Art.9 requires ICT-related records to be retained for a defined period (minimum 5 years for EU financial entities). Compliance reports must **not** be deletable by users through the UI. They are immutable records.
+
+**GDPR conflict:** DORA retention vs. GDPR right to erasure. Resolution: on a GDPR erasure request, pseudonymise the `findings_snapshot` by stripping any PII fields (user identifiers, email addresses if present), but retain the compliance record structure and severity counts. The report record itself is kept; only PII within it is erased. This is handled in Sub-project B (Settings / GDPR right to be forgotten).
+
+---
+
+## 9. What's Not In Scope (v1)
 
 - PDF report download (reserved — `report_url` column kept for this)
 - Editing framework selection post-onboarding (deferred to Settings section, Sub-project B)
@@ -179,3 +207,4 @@ New page. Read-only — snapshot data, no editing.
 **Database (SQL migrations):**
 - Add `compliance_frameworks text[]` to `tenants`
 - Add `scan_id`, `findings_snapshot`, `framework_summary` to `compliance_reports`
+- Add RLS policy `tenant_isolation` on `compliance_reports`
