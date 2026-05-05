@@ -74,7 +74,7 @@ export default async function FindingDetailPage({ params }: { params: Promise<{ 
           </h1>
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <FindingStatusButton findingId={finding.id} currentStatus={finding.status} />
+          <FindingStatusButton findingId={finding.id} currentStatus={finding.status} findingTitle={finding.title} />
           {finding.owasp_category && (
             <span style={{ fontSize: 11, color: '#64748b', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, padding: '3px 8px' }}>
               {finding.owasp_category}

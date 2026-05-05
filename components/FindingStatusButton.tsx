@@ -24,7 +24,7 @@ const STATUS_LABEL: Record<Status, string> = {
 // Set by the scan engine — shown but grayed in picker
 const SYSTEM_STATUSES: Status[] = ['verified_fixed']
 
-export default function FindingStatusButton({ findingId, currentStatus }: { findingId: string; currentStatus: string }) {
+export default function FindingStatusButton({ findingId, currentStatus, findingTitle }: { findingId: string; currentStatus: string; findingTitle?: string }) {
   const [status, setStatus] = useState<Status>((STATUSES.includes(currentStatus as Status) ? currentStatus : 'open') as Status)
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -36,9 +36,19 @@ export default function FindingStatusButton({ findingId, currentStatus }: { find
     setSaving(true)
     setOpen(false)
     const supabase = createClient()
+    const prev = status
     await supabase.from('findings').update({ status: next }).eq('id', findingId)
     setStatus(next)
     setSaving(false)
+    // Log to audit trail — fire and forget
+    fetch('/api/audit/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'finding.status_changed',
+        detail: { finding_id: findingId, title: findingTitle ?? findingId, from: prev, to: next },
+      }),
+    }).catch(() => {})
   }
 
   return (

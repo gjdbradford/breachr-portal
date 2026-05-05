@@ -4,11 +4,51 @@ import { useEffect, useState } from 'react'
 import type { AuditLog } from '@/lib/types'
 import { sha256Hex, GENESIS_HASH } from '@/lib/audit'
 
-const ACTION_COLORS: Record<string, string> = {
-  'scan.queued':           '#3b82f6',
-  'scan.started':          '#42a5f5',
-  'finding.discovered':    '#f59e0b',
-  'scan.completed':        '#22c55e',
+const ACTION_META: Record<string, { label: string; icon: string; color: string }> = {
+  'scan.launched':           { label: 'Scan Launched',         icon: '⟳', color: '#42a5f5' },
+  'scan.queued':             { label: 'Scan Queued',           icon: '⏱', color: '#3b82f6' },
+  'scan.started':            { label: 'Scan Started',          icon: '▶', color: '#42a5f5' },
+  'scan.completed':          { label: 'Scan Completed',        icon: '✓', color: '#22c55e' },
+  'finding.discovered':      { label: 'Finding Discovered',    icon: '⚠', color: '#f59e0b' },
+  'finding.status_changed':  { label: 'Status Changed',        icon: '↻', color: '#a78bfa' },
+  'finding.verified_fixed':  { label: 'Fix Verified',          icon: '✓', color: '#22c55e' },
+  'report.viewed':           { label: 'Report Viewed',         icon: '▤', color: '#64748b' },
+  'report.downloaded':       { label: 'Report Downloaded',     icon: '↓', color: '#64748b' },
+  'target.created':          { label: 'Target Added',          icon: '◎', color: '#42a5f5' },
+  'target.deleted':          { label: 'Target Removed',        icon: '✕', color: '#ef4444' },
+  'settings.updated':        { label: 'Settings Updated',      icon: '⚙', color: '#94a3b8' },
+}
+
+function parseDetail(raw: string | null): Record<string, string> {
+  if (!raw) return {}
+  try {
+    const obj = JSON.parse(raw)
+    const { _ts, ...rest } = obj
+    void _ts
+    return Object.fromEntries(
+      Object.entries(rest).map(([k, v]) => [k, String(v)])
+    )
+  } catch {
+    return {}
+  }
+}
+
+function formatDetail(action: string, detail: Record<string, string>): string {
+  if (action === 'finding.status_changed') {
+    const title = detail.title ?? detail.finding_id ?? '?'
+    return `"${title}" → ${detail.from ?? '?'} → ${detail.to ?? '?'}`
+  }
+  if (action === 'scan.completed' || action === 'scan.launched' || action === 'scan.started') {
+    return detail.scan_id ? `Scan ${detail.scan_id.slice(0, 8)}…` : ''
+  }
+  if (action === 'finding.discovered' || action === 'finding.verified_fixed') {
+    const title = detail.title ?? ''
+    const sev = detail.severity ? ` (${detail.severity})` : ''
+    return `${title}${sev}`
+  }
+  if (action === 'report.viewed') return detail.framework ?? ''
+  const values = Object.values(detail).slice(0, 2).join(' · ')
+  return values
 }
 
 type ChainResult = { chainValid: boolean; sigValid?: boolean }
@@ -17,6 +57,7 @@ export default function AuditChain({ entries }: { entries: AuditLog[] }) {
   const [chainResults, setChainResults] = useState<Record<string, ChainResult>>({})
   const [verifying, setVerifying] = useState(false)
   const [serverResult, setServerResult] = useState<{ allValid: boolean } | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(null)
 
   useEffect(() => {
     if (!entries.length) return
@@ -37,7 +78,6 @@ export default function AuditChain({ entries }: { entries: AuditLog[] }) {
     try {
       const res = await fetch('/api/audit/verify')
       const data = await res.json()
-      // Merge HMAC results into chainResults
       setChainResults(prev => {
         const next = { ...prev }
         for (const e of data.entries ?? []) {
@@ -46,117 +86,155 @@ export default function AuditChain({ entries }: { entries: AuditLog[] }) {
         return next
       })
       setServerResult({ allValid: data.allValid })
-    } catch {
-      // ignore
-    } finally {
-      setVerifying(false)
-    }
+    } catch { /* ignore */ }
+    finally { setVerifying(false) }
   }
 
-  const chainIntact = Object.values(chainResults).every(r => r.chainValid)
+  const chainIntact = entries.length === 0 || Object.values(chainResults).every(r => r.chainValid)
   const total = entries.length
-  const validCount = Object.values(chainResults).filter(r => r.chainValid).length
+
+  // Group entries by date
+  const byDate: { date: string; items: AuditLog[] }[] = []
+  for (const e of [...entries].reverse()) {
+    const d = new Date(e.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    const last = byDate[byDate.length - 1]
+    if (last?.date === d) last.items.push(e)
+    else byDate.push({ date: d, items: [e] })
+  }
 
   return (
-    <div className="gs au1" style={{ padding: 0, overflow: 'hidden' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>AUDIT CHAIN</span>
-          <span style={{ fontSize: 11, color: '#64748b' }}>{total} entries</span>
-          {total > 0 && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: chainIntact ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${chainIntact ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`, color: chainIntact ? '#22c55e' : '#ef4444' }}>
-              {chainIntact ? '⛓ Chain intact' : '⚠ Chain broken'} — {validCount}/{total}
-            </span>
-          )}
-          {serverResult != null && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: serverResult.allValid ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)', border: `1px solid ${serverResult.allValid ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`, color: serverResult.allValid ? '#4ade80' : '#f87171' }}>
-              🔐 {serverResult.allValid ? 'HMAC verified' : 'HMAC failed'}
-            </span>
-          )}
+    <div>
+      {/* Header stats */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="gs" style={{ flex: 1, minWidth: 160, padding: '14px 18px', borderRadius: 10 }}>
+          <p style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Total Events</p>
+          <p style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', fontFamily: 'monospace' }}>{total}</p>
         </div>
+        <div className="gs" style={{ flex: 1, minWidth: 160, padding: '14px 18px', borderRadius: 10 }}>
+          <p style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Chain Status</p>
+          <p style={{ fontSize: 14, fontWeight: 700, color: chainIntact ? '#22c55e' : '#ef4444' }}>
+            {total === 0 ? '—' : chainIntact ? '⛓ Intact' : '⚠ Broken'}
+          </p>
+        </div>
+        {serverResult && (
+          <div className="gs" style={{ flex: 1, minWidth: 160, padding: '14px 18px', borderRadius: 10 }}>
+            <p style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>HMAC Verification</p>
+            <p style={{ fontSize: 14, fontWeight: 700, color: serverResult.allValid ? '#22c55e' : '#ef4444' }}>
+              {serverResult.allValid ? '🔐 All valid' : '✗ Failed'}
+            </p>
+          </div>
+        )}
         <button
           onClick={handleVerify}
           disabled={verifying || total === 0}
           className="btn-s"
-          style={{ fontSize: 11, padding: '6px 14px' }}
+          style={{ fontSize: 11, padding: '8px 18px', alignSelf: 'center' }}
         >
-          {verifying ? 'Verifying…' : '🔐 Verify with Server'}
+          {verifying ? 'Verifying…' : '🔐 Verify Chain'}
         </button>
       </div>
 
-      {total === 0 ? (
-        <div style={{ padding: '40px 24px', textAlign: 'center', color: '#475569' }}>
-          <p style={{ fontSize: 13 }}>No audit entries yet. Launch a scan to start building the chain.</p>
-        </div>
-      ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Time (UTC)</th>
-              <th>Action</th>
-              <th>Detail</th>
-              <th style={{ fontFamily: 'monospace' }}>prev_hash</th>
-              <th style={{ fontFamily: 'monospace' }}>Signature</th>
-              <th>Chain</th>
-              <th>HMAC</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((entry, i) => {
-              const result = chainResults[entry.id]
-              const isGenesis = i === 0
-              return (
-                <tr key={entry.id}>
-                  <td style={{ fontFamily: 'monospace', fontSize: 10, color: '#64748b' }}>{i + 1}</td>
-                  <td style={{ fontFamily: 'monospace', fontSize: 10, color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                    {new Date(entry.created_at).toISOString().slice(11, 19)} UTC
-                  </td>
-                  <td>
-                    <span style={{ padding: '2px 7px', borderRadius: 3, fontSize: 9, fontWeight: 700, fontFamily: 'monospace', background: `${ACTION_COLORS[entry.action] ?? '#64748b'}18`, border: `1px solid ${ACTION_COLORS[entry.action] ?? '#64748b'}40`, color: ACTION_COLORS[entry.action] ?? '#94a3b8' }}>
-                      {entry.action}
-                    </span>
-                  </td>
-                  <td style={{ maxWidth: 180 }}>
-                    <span style={{ fontSize: 10, color: '#64748b', fontFamily: 'monospace', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={entry.detail ?? ''}>
-                      {entry.detail ?? '—'}
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{ fontFamily: 'monospace', fontSize: 9, color: isGenesis ? '#3b82f6' : '#3b5f8a' }} title={entry.prev_hash ?? ''}>
-                      {isGenesis ? 'GENESIS' : `${(entry.prev_hash ?? '').slice(0, 12)}…`}
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#42a5f5' }} title={entry.signature ?? ''}>
-                      {entry.signature ? `${entry.signature.slice(0, 12)}…` : '—'}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    {result == null ? (
-                      <span style={{ color: '#334155', fontSize: 12 }}>…</span>
-                    ) : result.chainValid ? (
-                      <span style={{ color: '#22c55e', fontSize: 13 }} title="prev_hash matches previous signature">✓</span>
-                    ) : (
-                      <span style={{ color: '#ef4444', fontSize: 13 }} title="Chain broken — entry may have been tampered with">✗</span>
+      {/* Timeline */}
+      <div className="gs au1" style={{ padding: 0, overflow: 'hidden' }}>
+        {total === 0 ? (
+          <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+            <p style={{ fontSize: 28, marginBottom: 12 }}>⛓</p>
+            <p style={{ fontSize: 14, fontWeight: 600, color: '#e2e8f0', marginBottom: 6 }}>No audit events yet</p>
+            <p style={{ fontSize: 12, color: '#475569' }}>Launch a scan or change a finding status to start building the chain.</p>
+          </div>
+        ) : (
+          byDate.map(({ date, items }) => (
+            <div key={date}>
+              {/* Date divider */}
+              <div style={{ padding: '8px 20px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.04)', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                <span style={{ fontSize: 10, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{date}</span>
+              </div>
+
+              {items.map((entry, idx) => {
+                const meta = ACTION_META[entry.action] ?? { label: entry.action, icon: '·', color: '#64748b' }
+                const detail = parseDetail(entry.detail)
+                const summary = formatDetail(entry.action, detail)
+                const result = chainResults[entry.id]
+                const isExpanded = expanded === entry.id
+                const isLast = idx === items.length - 1
+
+                return (
+                  <div key={entry.id} style={{ borderBottom: isLast ? 'none' : '1px solid rgba(255,255,255,0.04)' }}>
+                    <div
+                      onClick={() => setExpanded(isExpanded ? null : entry.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 20px', cursor: 'pointer', transition: 'background 0.15s' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      {/* Icon */}
+                      <div style={{ width: 30, height: 30, borderRadius: 8, background: `${meta.color}18`, border: `1px solid ${meta.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 13, color: meta.color }}>
+                        {meta.icon}
+                      </div>
+
+                      {/* Action + summary */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: meta.color }}>{meta.label}</span>
+                          {summary && <span style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 360 }}>{summary}</span>}
+                        </div>
+                        <div style={{ fontSize: 10, color: '#334155', marginTop: 2, fontFamily: 'monospace' }}>
+                          {new Date(entry.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} UTC
+                        </div>
+                      </div>
+
+                      {/* Chain validity */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                        {result == null ? (
+                          <span style={{ fontSize: 10, color: '#334155' }}>…</span>
+                        ) : result.chainValid ? (
+                          <span title="Chain link valid" style={{ fontSize: 10, color: '#22c55e', display: 'flex', alignItems: 'center', gap: 3 }}>⛓ <span style={{ color: '#22c55e' }}>✓</span></span>
+                        ) : (
+                          <span title="Chain broken" style={{ fontSize: 10, color: '#ef4444' }}>⛓ ✗</span>
+                        )}
+                        {result?.sigValid != null && (
+                          result.sigValid
+                            ? <span title="HMAC verified" style={{ fontSize: 11 }}>🔐</span>
+                            : <span title="HMAC failed" style={{ fontSize: 10, color: '#ef4444' }}>✗ HMAC</span>
+                        )}
+                        <span style={{ fontSize: 10, color: '#334155' }}>{isExpanded ? '▴' : '▾'}</span>
+                      </div>
+                    </div>
+
+                    {/* Expanded detail */}
+                    {isExpanded && (
+                      <div style={{ padding: '12px 20px 16px 64px', background: 'rgba(0,0,0,0.2)', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                        {Object.keys(detail).length > 0 && (
+                          <div style={{ marginBottom: 12 }}>
+                            <p style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Event Detail</p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                              {Object.entries(detail).map(([k, v]) => (
+                                <div key={k} style={{ fontSize: 11, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, padding: '3px 8px' }}>
+                                  <span style={{ color: '#475569' }}>{k}: </span>
+                                  <span style={{ color: '#cbd5e1', fontFamily: 'monospace' }}>{v}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+                          <div>
+                            <p style={{ fontSize: 10, color: '#475569', marginBottom: 3 }}>prev_hash</p>
+                            <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#3b5f8a' }}>{entry.prev_hash ?? 'GENESIS'}</span>
+                          </div>
+                          <div>
+                            <p style={{ fontSize: 10, color: '#475569', marginBottom: 3 }}>signature</p>
+                            <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#42a5f5' }}>{entry.signature ?? '—'}</span>
+                          </div>
+                        </div>
+                      </div>
                     )}
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    {result?.sigValid == null ? (
-                      <span style={{ color: '#334155', fontSize: 11 }}>—</span>
-                    ) : result.sigValid ? (
-                      <span style={{ color: '#22c55e', fontSize: 13 }} title="HMAC signature verified by server">🔐</span>
-                    ) : (
-                      <span style={{ color: '#ef4444', fontSize: 13 }} title="HMAC verification failed">✗</span>
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      )}
+                  </div>
+                )
+              })}
+            </div>
+          ))
+        )}
+      </div>
     </div>
   )
 }
