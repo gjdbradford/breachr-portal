@@ -90,7 +90,7 @@ A standalone page (outside the dashboard layout — no sidebar) reached only via
 
 **Flow:**
 1. Supabase's email link lands the user here with a token in the URL hash (`#access_token=...&type=recovery`)
-2. Supabase JS client automatically detects and exchanges the token on page load via `onAuthStateChange` — no manual token parsing needed
+2. Page manually parses the URL hash to extract `access_token`, `refresh_token`, and `type=recovery`, then calls `supabase.auth.setSession(...)` — required in Next.js App Router because the hash fragment never reaches the server, so auto-detection via `onAuthStateChange` is unreliable
 3. Page shows a form: "New password" + "Confirm password" inputs
 4. On submit: calls `supabase.auth.updateUser({ password: newPassword })`
 5. On success: redirect to `/dashboard/settings` with a `?passwordUpdated=1` param, which `ProfileTab` detects and shows a brief "Password updated successfully" banner

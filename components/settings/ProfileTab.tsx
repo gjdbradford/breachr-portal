@@ -3,7 +3,14 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-const INDUSTRIES = ['banking', 'insurance', 'payments', 'healthtech', 'energy', 'other']
+const INDUSTRIES: { value: string; label: string }[] = [
+  { value: 'banking',    label: 'Banking'    },
+  { value: 'insurance',  label: 'Insurance'  },
+  { value: 'payments',   label: 'Payments'   },
+  { value: 'healthtech', label: 'HealthTech' },
+  { value: 'energy',     label: 'Energy'     },
+  { value: 'other',      label: 'Other'      },
+]
 const SIZES = ['1-10', '11-50', '51-200', '201-1000', '1000+']
 
 export type TenantProfile = {
@@ -99,8 +106,8 @@ export default function ProfileTab({
             <label className="form-label">Industry</label>
             <select className="form-input" value={industry} onChange={e => setIndustry(e.target.value)}>
               <option value="">Select industry</option>
-              {INDUSTRIES.map(i => (
-                <option key={i} value={i}>{i.charAt(0).toUpperCase() + i.slice(1)}</option>
+              {INDUSTRIES.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
               ))}
             </select>
           </div>
