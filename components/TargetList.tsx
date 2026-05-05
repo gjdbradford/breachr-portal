@@ -3,6 +3,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import LaunchScanButton from '@/components/LaunchScanButton'
+import UpgradeWallModal from '@/components/UpgradeWallModal'
 
 const TYPE_LABEL: Record<string, string> = {
   webapp: 'Web App',
@@ -30,10 +31,28 @@ type Surface = {
   openTotal: number
 }
 
-export default function TargetList({ surfaces, tenantId }: { surfaces: Surface[]; tenantId: string }) {
+export default function TargetList({
+  surfaces,
+  tenantId,
+  planId = 'free',
+  targetsMax = 1,
+}: {
+  surfaces: Surface[]
+  tenantId: string
+  planId?: string
+  targetsMax?: number | null
+}) {
   const [items, setItems] = useState(surfaces)
   const [showAdd, setShowAdd] = useState(false)
+  const [showUpgradeWall, setShowUpgradeWall] = useState(false)
   const [filter, setFilter] = useState<'all' | 'active' | 'paused'>('all')
+
+  const atTargetLimit = targetsMax !== null && items.length >= targetsMax
+
+  function tryAddTarget() {
+    if (atTargetLimit) { setShowUpgradeWall(true); return }
+    setShowAdd(true)
+  }
 
   const visible = items.filter(s =>
     filter === 'all' ? true : filter === 'active' ? s.active : !s.active
@@ -69,7 +88,7 @@ export default function TargetList({ surfaces, tenantId }: { surfaces: Surface[]
         ))}
         <div style={{ flex: 1 }} />
         <button
-          onClick={() => setShowAdd(true)}
+          onClick={tryAddTarget}
           className="btn-p"
           style={{ fontSize: 13, padding: '8px 18px' }}
         >
@@ -81,7 +100,7 @@ export default function TargetList({ surfaces, tenantId }: { surfaces: Surface[]
       {visible.length === 0 ? (
         <div className="gs au1" style={{ padding: '60px 24px', textAlign: 'center', color: '#475569' }}>
           <p style={{ fontSize: 14, marginBottom: 8 }}>No {filter !== 'all' ? filter : ''} targets yet</p>
-          <button onClick={() => setShowAdd(true)} style={{ fontSize: 13, color: '#42a5f5', background: 'none', border: 'none', cursor: 'pointer' }}>
+          <button onClick={tryAddTarget} style={{ fontSize: 13, color: '#42a5f5', background: 'none', border: 'none', cursor: 'pointer' }}>
             Add your first target →
           </button>
         </div>
@@ -95,6 +114,16 @@ export default function TargetList({ surfaces, tenantId }: { surfaces: Surface[]
 
       {showAdd && (
         <AddTargetModal tenantId={tenantId} onAdded={onAdded} onClose={() => setShowAdd(false)} />
+      )}
+
+      {showUpgradeWall && (
+        <UpgradeWallModal
+          reason="target_limit"
+          currentPlanId={planId}
+          targetsUsed={items.length}
+          targetsMax={targetsMax}
+          onClose={() => setShowUpgradeWall(false)}
+        />
       )}
     </>
   )

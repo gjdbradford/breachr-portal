@@ -11,6 +11,12 @@ export default async function TargetsPage() {
   if (!profile) redirect('/login')
   const tenantId = profile.tenant_id
 
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('plan, plan_targets_limit')
+    .eq('id', tenantId)
+    .single()
+
   // All surfaces — active and paused — ordered newest first
   const { data: surfaces } = await supabase
     .from('attack_surfaces')
@@ -78,7 +84,12 @@ export default async function TargetsPage() {
           </p>
         </div>
       </div>
-      <TargetList surfaces={enriched} tenantId={tenantId} />
+      <TargetList
+        surfaces={enriched}
+        tenantId={tenantId}
+        planId={tenant?.plan ?? 'free'}
+        targetsMax={tenant?.plan_targets_limit ?? 1}
+      />
     </div>
   )
 }

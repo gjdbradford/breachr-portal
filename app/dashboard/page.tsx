@@ -14,7 +14,7 @@ export default async function DashboardPage() {
   const tenantId = profile.tenant_id
 
   const { data: tenant } = await supabase
-    .from('tenants').select('name, onboarding_complete, plan, industry').eq('id', tenantId).single()
+    .from('tenants').select('name, onboarding_complete, plan, industry, scans_this_month, tokens_used_this_month').eq('id', tenantId).single()
   if (tenant && !tenant.onboarding_complete) redirect('/onboarding')
 
   const [
@@ -98,7 +98,7 @@ export default async function DashboardPage() {
             Audit trail live · EU only
           </div>
           {surfaces && surfaces.length > 0 && (
-            <LaunchScanButton surfaces={surfaces} tenantId={tenantId} />
+            <LaunchScanButton surfaces={surfaces} tenantId={tenantId} planId={tenant?.plan ?? 'free'} scansThisMonth={tenant?.scans_this_month ?? 0} tokensThisMonth={tenant?.tokens_used_this_month ?? 0} />
           )}
         </div>
       </div>
