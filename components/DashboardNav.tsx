@@ -13,6 +13,7 @@ const links = [
   { href: '/dashboard/findings', label: 'Findings',    icon: '⚠' },
   { href: '/dashboard/reports',  label: 'Reports',     icon: '▤' },
   { href: '/dashboard/audit',    label: 'Audit Trail', icon: '⛓' },
+  { href: '/dashboard/settings', label: 'Settings',    icon: '⚙' },
 ]
 
 export default function DashboardNav({
