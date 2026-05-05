@@ -83,6 +83,8 @@ export default function DashboardNav({
 
   const scansPct   = scansLimit   ? Math.min(100, (scansThisMonth / scansLimit) * 100)     : 0
   const tokensPct  = tokensLimit  ? Math.min(100, (tokensThisMonth / tokensLimit) * 100)    : 0
+  const scansAtLimit  = scansPct >= 100
+  const tokensAtLimit = tokensPct >= 100
   const scansNear  = scansPct >= 80
   const tokensNear = tokensPct >= 80
 
@@ -187,8 +189,12 @@ export default function DashboardNav({
         </div>
 
         {(scansNear || tokensNear) && (
-          <Link href="/dashboard/upgrade" style={{ display: 'block', marginTop: 8, fontSize: 9, color: '#f59e0b', textDecoration: 'none', textAlign: 'center', padding: '4px 0', borderRadius: 4, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
-            ⚡ Approaching limit — upgrade
+          <Link href="/dashboard/upgrade" style={{ display: 'block', marginTop: 8, fontSize: 9, textDecoration: 'none', textAlign: 'center', padding: '4px 0', borderRadius: 4,
+            color:       (scansAtLimit || tokensAtLimit) ? '#ef4444' : '#f59e0b',
+            background:  (scansAtLimit || tokensAtLimit) ? 'rgba(239,68,68,0.08)'   : 'rgba(245,158,11,0.08)',
+            border:      (scansAtLimit || tokensAtLimit) ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(245,158,11,0.2)',
+          }}>
+            {(scansAtLimit || tokensAtLimit) ? '🚫 Limit reached — upgrade' : '⚡ Approaching limit — upgrade'}
           </Link>
         )}
       </div>
