@@ -49,24 +49,36 @@ export default function DashboardNav({
   useEffect(() => {
     if (!tenantId) return
     const supabase = createClient()
+
+    const refreshCount = () => {
+      supabase
+        .from('scans')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .in('status', ['queued', 'running'])
+        .then(({ count }) => {
+          const newCount = count ?? 0
+          setActiveScans(prev => {
+            if (newCount === 0 && prev > 0) router.refresh()
+            return newCount
+          })
+        })
+    }
+
     const channel = supabase
       .channel(`nav-scans-${tenantId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'scans', filter: `tenant_id=eq.${tenantId}`,
-      }, () => {
-        supabase
-          .from('scans')
-          .select('id', { count: 'exact', head: true })
-          .eq('tenant_id', tenantId)
-          .in('status', ['queued', 'running'])
-          .then(({ count }) => {
-            const newCount = count ?? 0
-            if (newCount === 0 && activeScans > 0) router.refresh()
-            setActiveScans(newCount)
-          })
-      })
+      // INSERT catches newly launched scans immediately (before scanner picks them up)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'scans', filter: `tenant_id=eq.${tenantId}` }, refreshCount)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scans', filter: `tenant_id=eq.${tenantId}` }, refreshCount)
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
+
+    // Poll every 10s as a safety net in case Realtime misses an event
+    const poll = setInterval(refreshCount, 10_000)
+
+    return () => {
+      supabase.removeChannel(channel)
+      clearInterval(poll)
+    }
   }, [tenantId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const scansPct   = scansLimit   ? Math.min(100, (scansThisMonth / scansLimit) * 100)     : 0
