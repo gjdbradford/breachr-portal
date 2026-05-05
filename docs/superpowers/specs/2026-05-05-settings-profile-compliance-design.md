@@ -33,6 +33,7 @@ Add a "Settings" link to `components/DashboardNav.tsx`, below the Audit Trail en
 | `components/settings/SettingsTabs.tsx` | Create | Client component — tab switcher (Profile / Compliance) |
 | `components/settings/ProfileTab.tsx` | Create | Client component — company form + personal section |
 | `components/settings/ComplianceTab.tsx` | Create | Client component — framework checkboxes |
+| `app/auth/reset-password/page.tsx` | Create | Client page — new password entry form, called from reset email link |
 | `components/DashboardNav.tsx` | Modify | Add Settings nav link |
 
 ### Data flow
@@ -71,11 +72,37 @@ Displayed below company section, separated by a divider.
 | Email | `users.email` | No — displayed read-only |
 | Role | `users.role` | No — displayed as badge (ADMIN / MEMBER) |
 
-**Change password:** A "Send password reset email" button calls `supabase.auth.resetPasswordForEmail(email)`. On success, replace button text with "Reset email sent ✓" for 3 seconds, then restore. On error, show inline error.
+**Change password:** A "Send password reset email" button calls:
+```typescript
+supabase.auth.resetPasswordForEmail(email, {
+  redirectTo: `${window.location.origin}/auth/reset-password`
+})
+```
+On success, replace button text with "Reset email sent ✓" for 3 seconds, then restore. On error, show inline error.
+
+The redirect URL (`/auth/reset-password`) must be added to the **Supabase Auth → URL Configuration → Redirect URLs** whitelist in the Supabase dashboard. Both `http://localhost:3000/auth/reset-password` (dev) and `https://breachr-portal.vercel.app/auth/reset-password` (prod) must be listed.
 
 ---
 
-## 4. Compliance Tab
+## 4. Password Reset Page (`/auth/reset-password`)
+
+A standalone page (outside the dashboard layout — no sidebar) reached only via the emailed link.
+
+**Flow:**
+1. Supabase's email link lands the user here with a token in the URL hash (`#access_token=...&type=recovery`)
+2. Supabase JS client automatically detects and exchanges the token on page load via `onAuthStateChange` — no manual token parsing needed
+3. Page shows a form: "New password" + "Confirm password" inputs
+4. On submit: calls `supabase.auth.updateUser({ password: newPassword })`
+5. On success: redirect to `/dashboard/settings` with a `?passwordUpdated=1` param, which `ProfileTab` detects and shows a brief "Password updated successfully" banner
+6. On error: show inline error (e.g. "Passwords don't match", "Password too short")
+
+**Validation:**
+- Passwords must match
+- Minimum 8 characters (Supabase default minimum)
+
+---
+
+## 5. Compliance Tab
 
 Three checkbox cards — identical UI to onboarding Step 3.
 
@@ -98,7 +125,15 @@ Below the checkboxes, a static info note:
 
 ---
 
-## 5. What's Not In Scope (v1)
+## 6. Supabase Dashboard Config Required
+
+Before deploying, add to **Supabase → Authentication → URL Configuration → Redirect URLs**:
+- `http://localhost:3000/auth/reset-password`
+- `https://breachr-portal.vercel.app/auth/reset-password`
+
+---
+
+## 7. What's Not In Scope (v1)
 
 - Billing tab (Stripe portal — deferred to Sub-project C)
 - Team tab (invite / manage users — deferred to Sub-project D)
