@@ -45,6 +45,10 @@ export default async function FindingDetailPage({ params }: { params: Promise<{ 
     ? finding.remediation.split('\n').filter(Boolean)
     : null
 
+  const replicationSteps = finding.replication_steps
+    ? finding.replication_steps.split('\n').filter(Boolean)
+    : null
+
   return (
     <div className="portal-content">
       {/* Back nav */}
@@ -99,6 +103,36 @@ export default async function FindingDetailPage({ params }: { params: Promise<{ 
               </p>
             </div>
           )}
+
+          {/* Replication Steps */}
+          <div className="gs au1" style={{ padding: 20, borderLeft: `3px solid #f59e0b` }}>
+            <h2 style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>
+              How to Reproduce
+            </h2>
+            {replicationSteps ? (
+              <ol style={{ paddingLeft: 0, margin: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {replicationSteps.map((step: string, i: number) => {
+                  const clean = step.replace(/^\d+\.\s*/, '')
+                  return (
+                    <li key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                      <span style={{
+                        width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                        background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)',
+                        color: '#f59e0b', fontSize: 10, fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontFamily: 'monospace', marginTop: 1,
+                      }}>
+                        {i + 1}
+                      </span>
+                      <span style={{ fontSize: 13, color: '#cbd5e1', lineHeight: 1.6, fontFamily: clean.startsWith('curl') || clean.startsWith('GET') || clean.startsWith('POST') ? 'monospace' : undefined, whiteSpace: 'pre-wrap' }}>{clean}</span>
+                    </li>
+                  )
+                })}
+              </ol>
+            ) : (
+              <p style={{ fontSize: 13, color: '#64748b' }}>No replication steps recorded — run a new scan to generate them.</p>
+            )}
+          </div>
 
           {/* Remediation */}
           <div className="gs au1" style={{ padding: 20, borderLeft: `3px solid #22c55e` }}>
