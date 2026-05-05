@@ -23,6 +23,7 @@ export default function DashboardNav({
   scansLimit = 3,
   tokensThisMonth = 0,
   tokensLimit = 200000,
+  isSuperuser = false,
 }: {
   tenantName: string
   plan?: string
@@ -30,6 +31,7 @@ export default function DashboardNav({
   scansLimit?: number
   tokensThisMonth?: number
   tokensLimit?: number
+  isSuperuser?: boolean
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -70,6 +72,21 @@ export default function DashboardNav({
             </Link>
           )
         })}
+        {isSuperuser && (
+          <>
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', margin: '8px 4px' }} />
+            <a
+              href="https://admin-gjdbradford-5891s-projects.vercel.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="sidebar-link"
+              style={{ color: '#a78bfa' }}
+            >
+              <span style={{ fontSize: 16, width: 20, textAlign: 'center' }}>⬡</span>
+              <span>Founders Portal</span>
+            </a>
+          </>
+        )}
       </nav>
 
       {/* Plan usage widget */}

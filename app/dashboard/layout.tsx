@@ -10,7 +10,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const { data: profile } = await supabase
     .from('users')
-    .select('tenant_id')
+    .select('tenant_id, is_superuser')
     .eq('id', user.id)
     .single()
 
@@ -31,6 +31,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         scansLimit={tenant?.plan_scans_limit ?? 3}
         tokensThisMonth={tenant?.tokens_used_this_month ?? 0}
         tokensLimit={tenant?.plan_tokens_limit ?? 200000}
+        isSuperuser={profile.is_superuser ?? false}
       />
       <main className="portal-main">
         {children}
