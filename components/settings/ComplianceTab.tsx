@@ -33,13 +33,16 @@ export default function ComplianceTab({
     setSaving(true)
     setSaveMsg('')
     const supabase = createClient()
-    const { error } = await supabase
+    const { error, data } = await supabase
       .from('tenants')
       .update({ compliance_frameworks: selected })
       .eq('id', tenantId)
+      .select('id')
     setSaving(false)
     if (error) {
       setSaveMsg(`Error: ${error.message}`)
+    } else if (!data?.length) {
+      setSaveMsg('Error: update failed — please refresh and try again')
     } else {
       setSaveMsg('Changes saved')
       setTimeout(() => setSaveMsg(''), 3000)

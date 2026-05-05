@@ -21,7 +21,7 @@ export default async function SettingsPage() {
     .single()
 
   const tenantData = tenant ?? { name: '', industry: '', company_size: '', country: null, compliance_frameworks: [] }
-  const userData   = { email: profile.email ?? user.email ?? '', role: profile.role ?? 'admin' }
+  const userData   = { email: profile.email ?? user.email ?? '', role: profile.role ?? 'member' }
 
   return (
     <div className="portal-content">

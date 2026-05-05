@@ -58,13 +58,16 @@ export default function ProfileTab({
     setSaving(true)
     setSaveMsg('')
     const supabase = createClient()
-    const { error } = await supabase
+    const { error, data } = await supabase
       .from('tenants')
       .update({ name, industry, company_size: companySize, country: country || null })
       .eq('id', tenantId)
+      .select('id')
     setSaving(false)
     if (error) {
       setSaveMsg(`Error: ${error.message}`)
+    } else if (!data?.length) {
+      setSaveMsg('Error: update failed — please refresh and try again')
     } else {
       setSaveMsg('Changes saved')
       setTimeout(() => setSaveMsg(''), 3000)
@@ -145,7 +148,7 @@ export default function ProfileTab({
           <label className="form-label">Role</label>
           <div>
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', padding: '3px 10px', borderRadius: 4, background: 'rgba(66,165,245,0.1)', color: '#42a5f5', border: '1px solid rgba(66,165,245,0.2)' }}>
-              {(user.role ?? 'admin').toUpperCase()}
+              {(user.role ?? 'member').toUpperCase()}
             </span>
           </div>
         </div>
