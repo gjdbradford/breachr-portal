@@ -43,6 +43,9 @@ export default function DashboardNav({
   const plan = getPlan(planId)
   const [activeScans, setActiveScans] = useState(initialActiveScans)
 
+  // Sync with server-side value after router.refresh() re-renders the layout
+  useEffect(() => { setActiveScans(initialActiveScans) }, [initialActiveScans])
+
   useEffect(() => {
     if (!tenantId) return
     const supabase = createClient()
