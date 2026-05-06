@@ -10,6 +10,7 @@
     "test:remediation": "node --env-file=.env.local scripts/test-remediation.mjs"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.5.1",
     "@stripe/stripe-js": "^9.4.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.1",
