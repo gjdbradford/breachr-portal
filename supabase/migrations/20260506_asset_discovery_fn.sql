@@ -8,7 +8,7 @@ CREATE OR REPLACE FUNCTION upsert_asset(
   p_os_guess  text,
   p_last_seen timestamptz
 ) RETURNS TABLE (id uuid, hostname text, os_guess text)
-LANGUAGE plpgsql SECURITY DEFINER AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_id uuid;
   v_hostname text;
@@ -18,6 +18,7 @@ BEGIN
   VALUES (p_tenant_id, p_sensor_id, p_ip::inet, p_mac::macaddr, p_hostname, p_vendor, p_os_guess, p_last_seen, true)
   ON CONFLICT (tenant_id, mac) DO UPDATE SET
     ip        = EXCLUDED.ip,
+    sensor_id = EXCLUDED.sensor_id,
     last_seen = EXCLUDED.last_seen,
     is_active = true,
     hostname  = COALESCE(assets.hostname, EXCLUDED.hostname),

@@ -33,6 +33,7 @@ CREATE TABLE assets (
 CREATE INDEX assets_tenant_id_idx ON assets(tenant_id);
 CREATE INDEX assets_sensor_id_idx ON assets(sensor_id);
 CREATE INDEX assets_risk_score_idx ON assets(risk_score DESC);
+CREATE INDEX assets_sensor_stale_idx ON assets(sensor_id, is_active, last_seen);
 
 CREATE TABLE asset_ports (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -67,10 +68,12 @@ CREATE TABLE cve_cache (
 );
 
 -- RLS: portal reads only (writes go through service role key in API routes)
-ALTER TABLE sensors    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE assets     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sensors     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE assets      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_ports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_vulns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cve_cache   ENABLE ROW LEVEL SECURITY;
+-- No direct client access needed — all reads go through server components with service role
 
 CREATE POLICY sensors_select ON sensors FOR SELECT
   USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()));
