@@ -22,18 +22,32 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .eq('id', profile.tenant_id)
     .single()
 
-  const { count: activeScansCount } = await supabase
-    .from('scans')
-    .select('id', { count: 'exact', head: true })
-    .eq('tenant_id', profile.tenant_id)
-    .in('status', ['queued', 'running'])
+  const monthStart = new Date()
+  monthStart.setDate(1)
+  monthStart.setHours(0, 0, 0, 0)
+
+  const [
+    { count: activeScansCount },
+    { count: scansThisMonthCount },
+  ] = await Promise.all([
+    supabase
+      .from('scans')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', profile.tenant_id)
+      .in('status', ['queued', 'running']),
+    supabase
+      .from('scans')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', profile.tenant_id)
+      .gte('created_at', monthStart.toISOString()),
+  ])
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#0a0e1a' }}>
       <DashboardNav
         tenantName={tenant?.name ?? 'My Company'}
         plan={tenant?.plan ?? 'free'}
-        scansThisMonth={tenant?.scans_this_month ?? 0}
+        scansThisMonth={scansThisMonthCount ?? 0}
         scansLimit={tenant?.plan_scans_limit ?? 3}
         tokensThisMonth={tenant?.tokens_used_this_month ?? 0}
         tokensLimit={tenant?.plan_tokens_limit ?? 200000}
