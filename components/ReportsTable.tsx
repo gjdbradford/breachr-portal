@@ -32,17 +32,18 @@ function SeveritySummary({ summary }: { summary: Record<string, number> | null }
 }
 
 interface Props {
-  reports:        any[]
-  filteredCount:  number
-  totalCount:     number
-  page:           number
-  pageSize:       number
-  frameworkCounts: Record<string, number>
-  orgCount?:      number
+  reports:          any[]
+  filteredCount:    number
+  totalCount:       number
+  page:             number
+  pageSize:         number
+  frameworkCounts:  Record<string, number>
+  enabledFrameworks: string[]
+  orgCount?:        number
 }
 
 export default function ReportsTable({
-  reports, filteredCount, totalCount, page, pageSize, frameworkCounts, orgCount = 0,
+  reports, filteredCount, totalCount, page, pageSize, frameworkCounts, enabledFrameworks, orgCount = 0,
 }: Props) {
   const router       = useRouter()
   const searchParams = useSearchParams()
@@ -72,7 +73,10 @@ export default function ReportsTable({
     router.replace(`?${p.toString()}`, { scroll: false })
   }
 
-  const allFrameworks = Object.keys(frameworkCounts).sort()
+  // Show all tenant-enabled frameworks; fall back to whatever appears in existing reports
+  const allFrameworks = enabledFrameworks.length > 0
+    ? [...new Set([...enabledFrameworks, ...Object.keys(frameworkCounts)])].sort()
+    : Object.keys(frameworkCounts).sort()
   const isFiltered = activeFrameworks.length > 0 || !!activeDatePreset || !!activeType
 
   function clearFilters() {

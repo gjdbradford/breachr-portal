@@ -110,6 +110,7 @@ export default async function ReportsPage({
           page={page}
           pageSize={PAGE_SIZE}
           frameworkCounts={frameworkCounts}
+          enabledFrameworks={tenantRow?.compliance_frameworks ?? []}
           orgCount={orgCount ?? 0}
         />
       </Suspense>
