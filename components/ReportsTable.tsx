@@ -50,6 +50,7 @@ export default function ReportsTable({
   const totalPages      = Math.ceil(filteredCount / pageSize)
   const activeFrameworks = (searchParams.get('framework') ?? '').split(',').filter(Boolean)
   const activeDatePreset = searchParams.get('date') ?? ''
+  const activeType       = searchParams.get('type') ?? ''
 
   function setParam(key: string, value: string) {
     const p = new URLSearchParams(searchParams.toString())
@@ -72,7 +73,7 @@ export default function ReportsTable({
   }
 
   const allFrameworks = Object.keys(frameworkCounts).sort()
-  const isFiltered = activeFrameworks.length > 0 || !!activeDatePreset
+  const isFiltered = activeFrameworks.length > 0 || !!activeDatePreset || !!activeType
 
   function clearFilters() {
     router.replace('?', { scroll: false })
@@ -146,7 +147,7 @@ export default function ReportsTable({
               <button
                 key={t}
                 type="button"
-                onClick={() => setParam('type', t)}
+                onClick={() => setParam('type', active ? '' : t)}
                 style={{
                   fontSize: 11, padding: '4px 10px', borderRadius: 4, cursor: 'pointer',
                   background: active ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.04)',
