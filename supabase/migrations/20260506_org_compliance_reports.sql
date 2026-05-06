@@ -5,7 +5,7 @@
 -- compliance_reports: support organisational (multi-scan) reports
 -- report_type: 'scan' = legacy per-scan (default), 'organizational' = new holistic
 ALTER TABLE compliance_reports
-  ADD COLUMN IF NOT EXISTS report_type       text NOT NULL DEFAULT 'scan',
+  ADD COLUMN IF NOT EXISTS report_type       text NOT NULL DEFAULT 'scan' CHECK (report_type IN ('scan', 'organizational')),
   ADD COLUMN IF NOT EXISTS report_period_start timestamptz,
   ADD COLUMN IF NOT EXISTS report_period_end   timestamptz,
   ADD COLUMN IF NOT EXISTS scan_ids          uuid[],
