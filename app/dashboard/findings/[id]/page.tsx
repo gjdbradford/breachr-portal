@@ -37,6 +37,17 @@ export default async function FindingDetailPage({ params }: { params: Promise<{ 
 
   if (!finding) notFound()
 
+  // Fetch the accepting user's email if a risk decision was recorded
+  let acceptedByEmail: string | null = null
+  if (finding.risk_accepted_by) {
+    const { data: acceptedByUser } = await supabase
+      .from('users')
+      .select('email')
+      .eq('id', finding.risk_accepted_by)
+      .single()
+    acceptedByEmail = acceptedByUser?.email ?? null
+  }
+
   const sevColor = SEV_COLOR[finding.severity] ?? '#64748b'
   const scan = (finding.scans as any)
   const surface = scan?.attack_surfaces
@@ -254,6 +265,23 @@ export default async function FindingDetailPage({ params }: { params: Promise<{ 
               <Row label="Status" value={finding.status} />
             </div>
           </div>
+
+          {/* Risk decision record */}
+          {(finding.status === 'accepted_risk' || finding.status === 'false_positive') && finding.risk_acceptance_reason && (
+            <div className="gs au1" style={{ padding: 16, borderLeft: `3px solid ${finding.status === 'accepted_risk' ? '#8b5cf6' : '#64748b'}` }}>
+              <h3 style={{ fontSize: 11, fontWeight: 700, color: finding.status === 'accepted_risk' ? '#8b5cf6' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                {finding.status === 'accepted_risk' ? 'Risk Acceptance' : 'False Positive'}
+              </h3>
+              <p style={{ fontSize: 12, color: '#cbd5e1', lineHeight: 1.6, marginBottom: 10 }}>
+                {finding.risk_acceptance_reason}
+              </p>
+              {acceptedByEmail && (
+                <p style={{ fontSize: 10, color: '#475569' }}>
+                  Recorded by <span style={{ color: '#64748b' }}>{acceptedByEmail}</span>
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
