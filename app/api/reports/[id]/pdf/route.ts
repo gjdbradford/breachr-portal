@@ -124,7 +124,8 @@ function buildPDF(report: any, tenantName: string, mode: 'summary' | 'full') {
                 h(Text, { style: s.hashValue }, String(report.scan_count ?? (report.scan_ids?.length ?? '—'))),
                 h(Text, { style: { ...s.hashLabel, marginTop: 8 } }, 'TARGETS ASSESSED'),
                 h(Text, { style: s.hashValue },
-                  (Array.isArray(report.targets_covered) ? report.targets_covered as any[] : []).map((t: any) => t.name).join(', ') || '—'),
+                  (Array.isArray(report.targets_covered) ? report.targets_covered as any[] : [])
+                    .map((t: any) => (t?.name ? String(t.name) : null)).filter(Boolean).join(', ') || '—'),
               ]
             : [
                 h(Text, { style: { ...s.hashLabel, marginTop: 8 } }, 'SCAN ID'),
