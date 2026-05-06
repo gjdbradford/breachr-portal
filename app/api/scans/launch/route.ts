@@ -30,6 +30,15 @@ export async function POST(req: Request) {
     }, { status: 429 })
   }
 
+  // Enforce token limit
+  if (tenant.plan_tokens_limit !== null && tenant.tokens_used_this_month >= tenant.plan_tokens_limit) {
+    return NextResponse.json({
+      error: 'token_limit',
+      tokensUsed: tenant.tokens_used_this_month,
+      tokensLimit: tenant.plan_tokens_limit,
+    }, { status: 429 })
+  }
+
   // Verify the surface belongs to this tenant
   const { data: surface } = await supabase
     .from('attack_surfaces')
