@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 type Framework = 'DORA' | 'NIS2' | 'PCI-DSS'
+const VALID_FRAMEWORKS: Framework[] = ['DORA', 'NIS2', 'PCI-DSS']
 
 const PERIOD_OPTIONS = [
   { label: 'Last 30 days',  value: 30 },
@@ -23,8 +24,9 @@ export default function GenerateReportButton({
   enabledFrameworks: string[]
 }) {
   const router = useRouter()
-  const available = (enabledFrameworks as Framework[]).filter(f =>
-    ['DORA', 'NIS2', 'PCI-DSS'].includes(f)
+  // enabledFrameworks comes from a server component and won't change after mount
+  const available = enabledFrameworks.filter((f): f is Framework =>
+    (VALID_FRAMEWORKS as string[]).includes(f)
   )
 
   const [open,       setOpen]       = useState(false)
@@ -44,11 +46,11 @@ export default function GenerateReportButton({
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`)
+      if (!body.reportId) throw new Error('Server returned no report ID')
       setOpen(false)
       router.push(`/dashboard/reports/${body.reportId}`)
-      router.refresh()
-    } catch (err: any) {
-      setError(err.message ?? 'Generation failed')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Generation failed')
     } finally {
       setLoading(false)
     }
@@ -66,6 +68,7 @@ export default function GenerateReportButton({
   return (
     <div style={{ position: 'relative' }}>
       <button
+        type="button"
         onClick={() => setOpen(o => !o)}
         style={{
           display: 'flex', alignItems: 'center', gap: 7, padding: '7px 16px',
@@ -73,7 +76,7 @@ export default function GenerateReportButton({
           background: '#1976d2', color: '#fff', border: 'none',
         }}
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
         Generate Report
@@ -105,6 +108,7 @@ export default function GenerateReportButton({
                 {available.map(fw => (
                   <button
                     key={fw}
+                    type="button"
                     onClick={() => setFramework(fw)}
                     style={{
                       fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 4,
@@ -131,6 +135,7 @@ export default function GenerateReportButton({
                 {PERIOD_OPTIONS.map(opt => (
                   <button
                     key={opt.value}
+                    type="button"
                     onClick={() => setPeriodDays(opt.value)}
                     style={{
                       textAlign: 'left', fontSize: 12, padding: '6px 10px', borderRadius: 5,
@@ -152,6 +157,7 @@ export default function GenerateReportButton({
             )}
 
             <button
+              type="button"
               onClick={handleGenerate}
               disabled={loading}
               style={{
