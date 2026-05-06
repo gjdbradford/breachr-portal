@@ -83,7 +83,7 @@ select.form-input option { background:#0f172a; }
 .sidebar-link.active { color:#42a5f5; border-left-color:#1976d2; background:rgba(25,118,210,0.08); }
 .sidebar-section { font-size:10px; color:#475569; padding:12px 20px 4px; letter-spacing:0.1em; text-transform:uppercase; }
 
-.portal-main { margin-left:220px; min-height:100vh; }
+.portal-main { margin-left:220px; min-height:100vh; flex:1; min-width:0; }
 .portal-header {
   padding:0 32px; height:60px; border-bottom:1px solid rgba(25,118,210,0.08);
   display:flex; align-items:center; justify-content:space-between;

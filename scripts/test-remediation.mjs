@@ -196,6 +196,13 @@ async function run() {
   // ── 2. STATUS CHANGES & AUDIT LOGGING ────────────────────────────────────
   section('2. Status changes — audit trail')
 
+  // audit_logs is append-only (no-delete rule) — snapshot count before inserting
+  const { count: statusChangeBefore } = await admin
+    .from('audit_logs')
+    .select('*', { count: 'exact', head: true })
+    .eq('tenant_id', TENANT_ID)
+    .eq('action', 'finding.status_changed')
+
   // Change A: open → in_progress
   await admin.from('findings').update({ status: 'in_progress' }).eq('id', findingA.id)
   await insertAuditLog(admin, 'finding.status_changed', {
@@ -222,9 +229,11 @@ async function run() {
     .eq('tenant_id', TENANT_ID)
     .order('created_at', { ascending: true })
 
-  auditEntries?.length === 2
-    ? pass(`audit_logs has 2 entries for status changes`)
-    : fail('audit_logs entry count', `expected 2, got ${auditEntries?.length ?? 0}`)
+  const statusChangeEntries = auditEntries?.filter(e => e.action === 'finding.status_changed') ?? []
+  const newStatusChanges = statusChangeEntries.length - (statusChangeBefore ?? 0)
+  newStatusChanges === 2
+    ? pass('audit_logs gained 2 finding.status_changed entries')
+    : fail('audit_logs entry count', `expected +2 new entries, got +${newStatusChanges}`)
 
   // Verify finding A is actually remediated in DB
   const { data: updatedA } = await admin.from('findings').select('status').eq('id', findingA.id).single()
