@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import AuditLogger from '@/components/AuditLogger'
+import ReportDownloadButton from '@/components/ReportDownloadButton'
 
 const SEV_ORDER = ['critical', 'high', 'medium', 'low', 'info']
 
@@ -69,10 +70,13 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
             {FRAMEWORK_FULL_NAMES[report.framework] ?? report.framework}
           </h1>
           <p style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>
-            Generated {report.generated_at
-              ? new Date(report.generated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-              : '—'}
-            {' · '}Scan ID: {report.scan_id?.slice(0, 8) ?? '—'}
+            {report.report_type === 'organizational'
+              ? `Organisational report · generated ${report.generated_at
+                  ? new Date(report.generated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                  : '—'}`
+              : `Generated ${report.generated_at
+                  ? new Date(report.generated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                  : '—'} · Scan ID: ${report.scan_id?.slice(0, 8) ?? '—'}`}
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -85,6 +89,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
           }}>
             {risk}
           </span>
+          <ReportDownloadButton reportId={report.id} framework={report.framework} />
         </div>
       </div>
 
@@ -113,6 +118,57 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
             </p>
           )}
         </div>
+
+        {/* Scope section — org reports only */}
+        {report.report_type === 'organizational' && (
+          <div style={{
+            padding: 16, borderRadius: 8,
+            background: 'rgba(25,118,210,0.06)', border: '1px solid rgba(25,118,210,0.15)',
+            marginBottom: 24,
+          }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
+              Report Scope
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+              <div>
+                <p style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>Reporting Period</p>
+                <p style={{ fontSize: 12, color: '#e2e8f0' }}>
+                  {report.report_period_start
+                    ? new Date(report.report_period_start).toLocaleDateString('en-GB')
+                    : '—'}
+                  {' → '}
+                  {report.report_period_end
+                    ? new Date(report.report_period_end).toLocaleDateString('en-GB')
+                    : '—'}
+                </p>
+              </div>
+              <div>
+                <p style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>Scans Included</p>
+                <p style={{ fontSize: 12, color: '#e2e8f0' }}>{report.scan_count ?? (report.scan_ids?.length ?? '—')}</p>
+              </div>
+              <div>
+                <p style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>Targets Assessed</p>
+                <p style={{ fontSize: 12, color: '#e2e8f0' }}>{(report.targets_covered ?? []).length}</p>
+              </div>
+            </div>
+            {(report.targets_covered ?? []).length > 0 && (
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <p style={{ fontSize: 10, color: '#64748b', marginBottom: 6 }}>Covered Targets</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {(report.targets_covered as any[]).map((t: any) => (
+                    <span key={t.id} style={{
+                      fontSize: 11, padding: '3px 8px', borderRadius: 4,
+                      background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                      color: '#94a3b8',
+                    }}>
+                      {t.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Findings table */}
         {sortedFindings.length > 0 ? (
