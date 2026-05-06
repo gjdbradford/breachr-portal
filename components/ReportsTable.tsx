@@ -108,7 +108,7 @@ export default function ReportsTable({
                     transition: 'all 0.15s',
                   }}
                 >
-                  {fw}{frameworkCounts[fw] ? <span style={{ opacity: 0.6 }}> ({frameworkCounts[fw]})</span> : null}
+                  {fw} <span style={{ opacity: 0.6 }}>({frameworkCounts[fw] ?? 0})</span>
                 </button>
               )
             })}
