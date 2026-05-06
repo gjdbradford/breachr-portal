@@ -8,7 +8,7 @@ type Framework = typeof ALL_FRAMEWORKS[number]
 
 const FRAMEWORK_LABELS: Record<Framework, { name: string; description: string }> = {
   'DORA':    { name: 'DORA',    description: 'EU Digital Operational Resilience Act — mandatory for financial entities operating in the EU.' },
-  'NIS2':    { name: 'NIS2',    description: 'EU Network & Information Security Directive — applies to essential and important sector entities.' },
+  'NIS2':    { name: 'NIS2',    description: 'EU Network & Information Security Directive — mandatory for essential sectors including healthcare, finance, energy, and digital infrastructure.' },
   'PCI-DSS': { name: 'PCI-DSS', description: 'Payment Card Industry Data Security Standard — required if you process, store or transmit card data.' },
 }
 
