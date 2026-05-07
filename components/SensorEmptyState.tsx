@@ -46,8 +46,9 @@ const DOCKER_RUN_CMD = `docker run -d \\
   --restart unless-stopped \\
   --cap-add=NET_ADMIN \\
   --cap-add=NET_RAW \\
-  -e BREACHR_TOKEN=<your-token> \\
-  -e SENSOR_ID=<your-sensor-id> \\
+  -e BREACHR_SENSOR_TOKEN=<your-token> \\
+  -e BREACHR_SENSOR_ID=<your-sensor-id> \\
+  -e BREACHR_API_URL=https://breachr-portal.vercel.app \\
   ghcr.io/gjdbradford/sensor:latest`
 
 const PI_PREREQ_CMD = `curl -fsSL https://get.docker.com | sh`
@@ -64,8 +65,9 @@ After=network.target
 User=root
 WorkingDirectory=/opt/breachr-sensor
 ExecStart=/usr/bin/python3 /opt/breachr-sensor/sensor.py
-Environment=BREACHR_TOKEN=<your-token>
-Environment=SENSOR_ID=<your-sensor-id>
+Environment=BREACHR_SENSOR_TOKEN=<your-token>
+Environment=BREACHR_SENSOR_ID=<your-sensor-id>
+Environment=BREACHR_API_URL=https://breachr-portal.vercel.app
 Restart=on-failure
 
 [Install]
@@ -182,8 +184,9 @@ function InstructionPanel({
             <li>
               <strong style={{ color: '#cbd5e1' }}>Environment</strong> tab — add three variables:
               <ul style={{ marginTop: 4, marginBottom: 4, lineHeight: 2 }}>
-                <li><code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>BREACHR_TOKEN</code> = <code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>&lt;your-token&gt;</code></li>
-                <li><code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>SENSOR_ID</code> = <code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>&lt;your-sensor-id&gt;</code></li>
+                <li><code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>BREACHR_SENSOR_TOKEN</code> = <code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>&lt;your-token&gt;</code></li>
+                <li><code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>BREACHR_SENSOR_ID</code> = <code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>&lt;your-sensor-id&gt;</code></li>
+                <li><code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>BREACHR_API_URL</code> = <code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>https://breachr-portal.vercel.app</code></li>
               </ul>
             </li>
             <li><strong style={{ color: '#cbd5e1' }}>Network</strong> → select <strong style={{ color: '#cbd5e1' }}>Host mode</strong></li>
