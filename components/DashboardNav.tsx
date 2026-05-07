@@ -8,13 +8,15 @@ import { createClient } from '@/lib/supabase/client'
 import { getPlan, fmtTokens } from '@/lib/plans'
 
 const links = [
-  { href: '/dashboard',          label: 'Overview',    icon: '◈' },
-  { href: '/dashboard/targets',  label: 'Targets',     icon: '◎' },
-  { href: '/dashboard/scans',    label: 'Scans',       icon: '⟳' },
-  { href: '/dashboard/findings', label: 'Findings',    icon: '⚠' },
-  { href: '/dashboard/reports',  label: 'Reports',     icon: '▤' },
-  { href: '/dashboard/audit',    label: 'Audit Trail', icon: '⛓' },
-  { href: '/dashboard/settings', label: 'Settings',    icon: '⚙' },
+  { href: '/dashboard',             label: 'Overview',    icon: '◈' },
+  { href: '/dashboard/targets',     label: 'Targets',     icon: '◎' },
+  { href: '/dashboard/scans',       label: 'Scans',       icon: '⟳' },
+  { href: '/dashboard/findings',    label: 'Findings',    icon: '⚠' },
+  { href: '/dashboard/reports',     label: 'Reports',     icon: '▤' },
+  { href: '/dashboard/inventory',   label: 'Inventory',   icon: '⬡' },
+  { href: '/dashboard/sensors',     label: 'Sensors',     icon: '◉' },
+  { href: '/dashboard/audit',       label: 'Audit Trail', icon: '⛓' },
+  { href: '/dashboard/settings',    label: 'Settings',    icon: '⚙' },
 ]
 
 export default function DashboardNav({
