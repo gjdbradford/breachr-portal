@@ -1,3 +1,9 @@
 {
-  "alias": ["breachr-portal.vercel.app"]
+  "alias": ["breachr-portal.vercel.app"],
+  "crons": [
+    {
+      "path": "/api/crons/cve-enrichment",
+      "schedule": "0 2 * * *"
+    }
+  ]
 }
