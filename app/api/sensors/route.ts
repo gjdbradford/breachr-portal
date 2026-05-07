@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as adminClient } from '@supabase/supabase-js'
 import { randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -14,10 +14,14 @@ export async function POST(req: Request) {
   if (!profile) return NextResponse.json({ error: 'No profile' }, { status: 403 })
 
   const body = await req.json().catch(() => ({}))
-  const name: string = (body.name ?? '').trim()
-  const location: string = (body.location ?? '').trim()
+  const rawName = body.name
+  const name: string = (typeof rawName === 'string' ? rawName : '').trim()
+  const rawLocation = body.location
+  const location: string = (typeof rawLocation === 'string' ? rawLocation : '').trim()
 
   if (!name) return NextResponse.json({ error: 'name is required' }, { status: 400 })
+  if (name.length > 200)
+    return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 })
 
   const token = randomBytes(32).toString('hex')
   const tokenHash = await bcrypt.hash(token, 10)
@@ -38,7 +42,10 @@ export async function POST(req: Request) {
     .select('id')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('[sensors] insert failed', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 
-  return NextResponse.json({ id: sensor.id, token })
+  return NextResponse.json({ id: sensor.id, token }, { status: 201 })
 }
