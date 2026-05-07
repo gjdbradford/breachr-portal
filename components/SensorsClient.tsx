@@ -29,6 +29,7 @@ export default function SensorsClient({ sensors, assetCountMap }: Props) {
     const t = sensors[0]?.deployment_type
     return VALID_DEPLOYMENT_TYPE_IDS.includes(t as DeploymentType) ? t as DeploymentType : 'docker'
   })
+  const [chatOpen, setChatOpen] = useState(false)
   const router = useRouter()
 
   function isActive(sensor: Sensor) {
@@ -56,9 +57,9 @@ export default function SensorsClient({ sensors, assetCountMap }: Props) {
           onTypeSelect={setSelectedType}
         />
         <div>
-          <SensorTroubleshooting selectedType={selectedType} />
+          <SensorTroubleshooting selectedType={selectedType} onOpenChat={() => setChatOpen(true)} />
         </div>
-        <SensorHelpChat deploymentType={selectedType} />
+        <SensorHelpChat deploymentType={selectedType} isOpen={chatOpen} onClose={() => setChatOpen(false)} />
       </>
     )
   }
@@ -132,7 +133,7 @@ export default function SensorsClient({ sensors, assetCountMap }: Props) {
       </div>
 
       <div>
-        <SensorTroubleshooting selectedType={selectedType} />
+        <SensorTroubleshooting selectedType={selectedType} onOpenChat={() => setChatOpen(true)} />
       </div>
       <SensorHelpChat
         deploymentType={selectedType}
@@ -142,6 +143,8 @@ export default function SensorsClient({ sensors, assetCountMap }: Props) {
           last_seen: firstSensor.last_seen,
           deployment_type: firstSensor.deployment_type,
         }}
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
       />
     </>
   )
