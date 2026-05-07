@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       )
     }
-    if (typeof msg.content !== 'string' || msg.content.length > 500) {
+    if (typeof msg.content !== 'string' || (msg.role === 'user' && msg.content.length > 500)) {
       return NextResponse.json(
         { error: 'Each message content must be a string of at most 500 characters' },
         { status: 400 }
