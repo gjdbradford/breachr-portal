@@ -4,6 +4,9 @@ import { createClient as adminClient } from '@supabase/supabase-js'
 import { randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
 
+const VALID_DEPLOYMENT_TYPES = ['docker', 'raspberry_pi', 'synology', 'native'] as const
+type DeploymentType = typeof VALID_DEPLOYMENT_TYPES[number]
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -18,6 +21,9 @@ export async function POST(req: NextRequest) {
   const name: string = (typeof rawName === 'string' ? rawName : '').trim()
   const rawLocation = body.location
   const location: string = (typeof rawLocation === 'string' ? rawLocation : '').trim()
+  const rawDeploymentType = body.deployment_type
+  const deploymentType: DeploymentType =
+    VALID_DEPLOYMENT_TYPES.includes(rawDeploymentType) ? rawDeploymentType : 'docker'
 
   if (!name) return NextResponse.json({ error: 'name is required' }, { status: 400 })
   if (name.length > 200)
@@ -34,10 +40,11 @@ export async function POST(req: NextRequest) {
   const { data: sensor, error } = await admin
     .from('sensors')
     .insert({
-      tenant_id:  profile.tenant_id,
+      tenant_id:       profile.tenant_id,
       name,
-      location:   location || null,
-      token_hash: tokenHash,
+      location:        location || null,
+      token_hash:      tokenHash,
+      deployment_type: deploymentType,
     })
     .select('id')
     .single()
