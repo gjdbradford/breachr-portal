@@ -15,18 +15,20 @@ interface Props {
 }
 
 interface Message {
+  id: string
   role: 'user' | 'assistant'
   content: string
   isError?: boolean
 }
 
+let msgId = 0
+function nextId() { return String(++msgId) }
+
 function capHistory(msgs: Message[]): Message[] {
-  // Keep only the last 10 messages
   if (msgs.length <= 10) return msgs
-  // Drop oldest pair (user + assistant) to bring total to 10
+  // Drop from the front in pairs to keep history even
   const excess = msgs.length - 10
-  // Drop in pairs from the front; excess is always even after a successful round trip
-  return msgs.slice(excess)
+  return msgs.slice(excess % 2 === 0 ? excess : excess + 1)
 }
 
 export default function SensorHelpChat({ deploymentType, sensor }: Props) {
@@ -34,7 +36,6 @@ export default function SensorHelpChat({ deploymentType, sensor }: Props) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const deploymentLabel =
     DEPLOYMENT_TYPES.find(dt => dt.id === deploymentType)?.label ?? deploymentType
@@ -48,20 +49,21 @@ export default function SensorHelpChat({ deploymentType, sensor }: Props) {
     const trimmed = input.trim()
     if (!trimmed || trimmed.length > 500 || loading) return
 
-    const userMessage: Message = { role: 'user', content: trimmed }
-    const nextMessages = capHistory([...messages, userMessage])
+    const userMessage: Message = { id: nextId(), role: 'user', content: trimmed }
 
-    setMessages(nextMessages)
+    setMessages(prev => [...prev, userMessage])
     setInput('')
     setLoading(true)
 
     try {
+      const apiMessages = capHistory([...messages, userMessage])
+
       const body: {
         messages: { role: 'user' | 'assistant'; content: string }[]
         deploymentType: DeploymentType
         sensorId?: string
       } = {
-        messages: nextMessages.map(m => ({ role: m.role, content: m.content })),
+        messages: apiMessages.map(m => ({ role: m.role, content: m.content })),
         deploymentType,
       }
       if (sensor?.id) {
@@ -75,12 +77,14 @@ export default function SensorHelpChat({ deploymentType, sensor }: Props) {
       })
 
       if (res.ok) {
-        const data = (await res.json()) as { reply: string }
-        setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
+        const data = (await res.json()) as { reply: unknown }
+        const reply = typeof data.reply === 'string' ? data.reply : 'Sorry, I could not get a response. Please try again.'
+        setMessages(prev => [...prev, { id: nextId(), role: 'assistant', content: reply }])
       } else {
         setMessages(prev => [
           ...prev,
           {
+            id: nextId(),
             role: 'assistant',
             content: 'Something went wrong. Please try again.',
             isError: true,
@@ -91,6 +95,7 @@ export default function SensorHelpChat({ deploymentType, sensor }: Props) {
       setMessages(prev => [
         ...prev,
         {
+          id: nextId(),
           role: 'assistant',
           content: 'Something went wrong. Please try again.',
           isError: true,
@@ -172,11 +177,11 @@ export default function SensorHelpChat({ deploymentType, sensor }: Props) {
             )}
 
             {/* Message bubbles */}
-            {messages.map((msg, i) => {
+            {messages.map(msg => {
               const isUser = msg.role === 'user'
               return (
                 <div
-                  key={i}
+                  key={msg.id}
                   style={{
                     display: 'flex',
                     justifyContent: isUser ? 'flex-end' : 'flex-start',
@@ -256,7 +261,7 @@ export default function SensorHelpChat({ deploymentType, sensor }: Props) {
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
               <div style={{ flex: 1, position: 'relative' }}>
                 <textarea
-                  ref={textareaRef}
+                  aria-label="Message"
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
