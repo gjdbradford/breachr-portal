@@ -7,4 +7,4 @@ export const DEPLOYMENT_TYPES = [
 
 export type DeploymentType = typeof DEPLOYMENT_TYPES[number]['id']
 
-export const VALID_DEPLOYMENT_TYPE_IDS: DeploymentType[] = ['docker', 'raspberry_pi', 'synology', 'native']
+export const VALID_DEPLOYMENT_TYPE_IDS = DEPLOYMENT_TYPES.map(dt => dt.id)
