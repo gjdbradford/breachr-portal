@@ -1,13 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import type { ReactNode } from 'react'
 import type { DeploymentType } from '@/lib/sensor-types'
 
 interface Issue {
   title: string
   severity: 'critical' | 'high' | 'medium' | 'low'
   types: DeploymentType[]
-  body: React.ReactNode
+  body: ReactNode
 }
 
 const issues: Issue[] = [
@@ -307,7 +308,9 @@ interface Props {
 }
 
 export default function SensorTroubleshooting({ selectedType }: Props) {
-  const [open, setOpen] = useState<number | null>(null)
+  const [open, setOpen] = useState<string | null>(null)
+
+  useEffect(() => { setOpen(null) }, [selectedType])
 
   const visibleIssues = selectedType
     ? issues.filter(issue => issue.types.includes(selectedType))
@@ -323,7 +326,7 @@ export default function SensorTroubleshooting({ selectedType }: Props) {
     DOCKER_DIAGNOSTICS
 
   return (
-    <div style={{ padding: '32px 24px 48px', maxWidth: 860, margin: '0 auto' }}>
+    <div id="sensor-troubleshooting" style={{ padding: '32px 24px 48px', maxWidth: 860, margin: '0 auto' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
@@ -364,10 +367,10 @@ export default function SensorTroubleshooting({ selectedType }: Props) {
 
       {/* Issues accordion */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {visibleIssues.map((issue, i) => (
-          <div key={i} style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', background: '#0d1428' }}>
+        {visibleIssues.map((issue) => (
+          <div key={issue.title} style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', background: '#0d1428' }}>
             <button
-              onClick={() => setOpen(open === i ? null : i)}
+              onClick={() => setOpen(open === issue.title ? null : issue.title)}
               style={{ width: '100%', textAlign: 'left', padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 10 }}
             >
@@ -381,9 +384,9 @@ export default function SensorTroubleshooting({ selectedType }: Props) {
                 {issue.severity}
               </span>
               <span style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1', flex: 1 }}>{issue.title}</span>
-              <span style={{ fontSize: 14, color: '#42a5f5', flexShrink: 0, transform: open === i ? 'rotate(45deg)' : 'none', transition: 'transform 0.15s' }}>+</span>
+              <span style={{ fontSize: 14, color: '#42a5f5', flexShrink: 0, transform: open === issue.title ? 'rotate(45deg)' : 'none', transition: 'transform 0.15s' }}>+</span>
             </button>
-            {open === i && (
+            {open === issue.title && (
               <div style={{ padding: '0 16px 14px', fontSize: 12, color: '#64748b', lineHeight: 1.7 }}>
                 {issue.body}
               </div>
