@@ -6,6 +6,9 @@ import { VALID_DEPLOYMENT_TYPE_IDS } from '@/lib/sensor-types'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
+const VALID_ROLES = new Set(['user', 'assistant'])
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 const KNOWLEDGE_BASE = `
 You are the Breachr sensor setup assistant. Your ONLY job is to help users install, configure, and troubleshoot Breachr network sensors.
 
@@ -80,6 +83,12 @@ export async function POST(req: NextRequest) {
   }
 
   for (const msg of messages) {
+    if (!VALID_ROLES.has(msg.role)) {
+      return NextResponse.json(
+        { error: 'Each message must have role "user" or "assistant"' },
+        { status: 400 }
+      )
+    }
     if (typeof msg.content !== 'string' || msg.content.length > 500) {
       return NextResponse.json(
         { error: 'Each message content must be a string of at most 500 characters' },
@@ -97,6 +106,10 @@ export async function POST(req: NextRequest) {
 
   // 3. Sensor context (only if sensorId provided)
   let sensorContext: { status: string; last_seen: string | null; deployment_type: string } | null = null
+
+  if (sensorId && !UUID_RE.test(sensorId)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   if (sensorId) {
     const admin = adminClient(
@@ -160,7 +173,7 @@ The user's current sensor context:
       messages: messages,
     })
 
-    const reply = response.content[0].type === 'text' ? response.content[0].text : ''
+    const reply = response.content[0]?.type === 'text' ? response.content[0].text : ''
     return NextResponse.json({ reply }, { status: 200 })
   } catch (err) {
     console.error('[ai-help] Anthropic API error', err)
