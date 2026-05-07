@@ -22,7 +22,6 @@ export default function SensorRegistrationModal({ onClose }: Props) {
   const [loading, setLoading]               = useState(false)
   const [error, setError]                   = useState('')
   const [result, setResult]                 = useState<{ id: string; token: string } | null>(null)
-  const [copied, setCopied]                 = useState(false)
 
   const apiUrl = typeof window !== 'undefined' ? window.location.origin : ''
 
@@ -66,12 +65,6 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target`
     : ''
-
-  async function copyText(text: string) {
-    await navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
 
   return (
     <div style={{
@@ -156,8 +149,6 @@ WantedBy=multi-user.target`
             sensorId={result.id}
             token={result.token}
             apiUrl={apiUrl}
-            copied={copied}
-            onCopy={copyText}
             onClose={onClose}
           />
         )}
@@ -167,7 +158,7 @@ WantedBy=multi-user.target`
 }
 
 function SetupInstructions({
-  deploymentType, dockerCmd, systemdUnit, sensorId, token, apiUrl, copied, onCopy, onClose,
+  deploymentType, dockerCmd, systemdUnit, sensorId, token, apiUrl, onClose,
 }: {
   deploymentType: DeploymentType
   dockerCmd: string
@@ -175,10 +166,16 @@ function SetupInstructions({
   sensorId: string
   token: string
   apiUrl: string
-  copied: boolean
-  onCopy: (text: string) => void
   onClose: () => void
 }) {
+  const [lastCopied, setLastCopied] = useState<string | null>(null)
+
+  async function handleCopy(text: string) {
+    await navigator.clipboard.writeText(text)
+    setLastCopied(text)
+    setTimeout(() => setLastCopied(null), 2000)
+  }
+
   const tokenWarning = (
     <p style={{ fontSize: 13, color: '#94a3b8', marginBottom: 16, lineHeight: 1.6 }}>
       Sensor registered.{' '}
@@ -197,8 +194,8 @@ function SetupInstructions({
   )
 
   const copyBtn = (text: string, label = 'Copy') => (
-    <button onClick={() => onCopy(text)} className="btn-p" style={{ fontSize: 13, padding: '8px 20px' }}>
-      {copied ? 'Copied!' : label}
+    <button onClick={() => handleCopy(text)} className="btn-p" style={{ fontSize: 13, padding: '8px 20px' }}>
+      {lastCopied === text ? 'Copied!' : label}
     </button>
   )
 
@@ -273,6 +270,9 @@ sudo systemctl status breachr-sensor`
         1. Install commands
       </p>
       {codeBlock(installCmds)}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+        {copyBtn(installCmds, 'Copy install commands')}
+      </div>
       <p style={{ fontSize: 11, fontWeight: 700, color: '#475569', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
         2. systemd unit file — save to /etc/systemd/system/breachr-sensor.service
       </p>
