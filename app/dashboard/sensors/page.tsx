@@ -12,7 +12,7 @@ export default async function SensorsPage() {
 
   const { data: sensors } = await supabase
     .from('sensors')
-    .select('id, name, location, last_seen, status')
+    .select('id, name, location, last_seen, status, deployment_type')
     .eq('tenant_id', profile.tenant_id)
     .order('name', { ascending: true })
 
