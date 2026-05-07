@@ -6,6 +6,7 @@ import SensorRegistrationModal from './SensorRegistrationModal'
 import SensorEmptyState from './SensorEmptyState'
 import SensorTroubleshooting from './SensorTroubleshooting'
 import SensorHelpChat from './SensorHelpChat'
+import { DEPLOYMENT_TYPES, VALID_DEPLOYMENT_TYPE_IDS } from '@/lib/sensor-types'
 import type { DeploymentType } from '@/lib/sensor-types'
 
 interface Sensor {
@@ -14,7 +15,7 @@ interface Sensor {
   location: string | null
   last_seen: string | null
   status: string
-  deployment_type: string
+  deployment_type: DeploymentType
 }
 
 interface Props {
@@ -24,7 +25,10 @@ interface Props {
 
 export default function SensorsClient({ sensors, assetCountMap }: Props) {
   const [showModal, setShowModal]       = useState(false)
-  const [selectedType, setSelectedType] = useState<DeploymentType>('docker')
+  const [selectedType, setSelectedType] = useState<DeploymentType>(() => {
+    const t = sensors[0]?.deployment_type
+    return VALID_DEPLOYMENT_TYPE_IDS.includes(t as DeploymentType) ? t as DeploymentType : 'docker'
+  })
   const router = useRouter()
 
   function isActive(sensor: Sensor) {
@@ -51,7 +55,7 @@ export default function SensorsClient({ sensors, assetCountMap }: Props) {
           selectedType={selectedType}
           onTypeSelect={setSelectedType}
         />
-        <div id="sensor-troubleshooting">
+        <div>
           <SensorTroubleshooting selectedType={selectedType} />
         </div>
         <SensorHelpChat deploymentType={selectedType} />
@@ -71,7 +75,7 @@ export default function SensorsClient({ sensors, assetCountMap }: Props) {
       )}
 
       <div style={{ padding: '0 24px 16px', display: 'flex', justifyContent: 'flex-end' }}>
-        <button onClick={() => setShowModal(true)} className="btn-p" style={{ fontSize: 13, padding: '8px 20px' }}>
+        <button type="button" onClick={() => setShowModal(true)} className="btn-p" style={{ fontSize: 13, padding: '8px 20px' }}>
           + Add sensor
         </button>
       </div>
@@ -106,7 +110,28 @@ export default function SensorsClient({ sensors, assetCountMap }: Props) {
         </table>
       </div>
 
-      <div id="sensor-troubleshooting">
+      <div style={{ padding: '0 24px 16px' }}>
+        <p style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>Troubleshooting &amp; help for:</p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {DEPLOYMENT_TYPES.map(dt => (
+            <button
+              key={dt.id}
+              type="button"
+              onClick={() => setSelectedType(dt.id)}
+              style={{
+                fontSize: 12, padding: '4px 12px', borderRadius: 6, cursor: 'pointer',
+                background: selectedType === dt.id ? 'rgba(99,102,241,0.15)' : 'rgba(30,41,59,0.6)',
+                color: selectedType === dt.id ? '#818cf8' : '#94a3b8',
+                border: `1px solid ${selectedType === dt.id ? 'rgba(99,102,241,0.4)' : 'rgba(100,116,139,0.2)'}`,
+              }}
+            >
+              {dt.icon} {dt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
         <SensorTroubleshooting selectedType={selectedType} />
       </div>
       <SensorHelpChat

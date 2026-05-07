@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { DEPLOYMENT_TYPES, type DeploymentType } from '@/lib/sensor-types'
 
 interface Props {
@@ -53,8 +53,8 @@ const DOCKER_RUN_CMD = `docker run -d \\
 
 const PI_PREREQ_CMD = `curl -fsSL https://get.docker.com | sh`
 
-const NATIVE_INSTALL_CMD = `git clone https://github.com/gjdbradford/sensor /opt/breachr-sensor
-cd /opt/breachr-sensor
+const NATIVE_INSTALL_CMD = `git clone https://github.com/gjdbradford/sensor /opt/breachr-sensor && \\
+cd /opt/breachr-sensor && \\
 pip3 install -r requirements.txt`
 
 const NATIVE_SYSTEMD_UNIT = `[Unit]
@@ -84,11 +84,23 @@ function InstructionPanel({
   onAddSensor: (type: DeploymentType) => void
 }) {
   const [lastCopied, setLastCopied] = useState<string | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [])
 
   async function handleCopy(key: string, text: string) {
-    await navigator.clipboard.writeText(text)
-    setLastCopied(key)
-    setTimeout(() => setLastCopied(null), 2000)
+    try {
+      await navigator.clipboard.writeText(text)
+      setLastCopied(key)
+      if (timerRef.current) clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => setLastCopied(null), 2000)
+    } catch {
+      // clipboard unavailable — silently ignore
+    }
   }
 
   const codeBlock = (key: string, text: string) => (
@@ -109,6 +121,7 @@ function InstructionPanel({
         {text}
       </div>
       <button
+        type="button"
         onClick={() => handleCopy(key, text)}
         style={{
           position: 'absolute',
@@ -234,6 +247,7 @@ function InstructionPanel({
         flexWrap: 'wrap' as const,
       }}>
         <button
+          type="button"
           onClick={() => onAddSensor(selectedType)}
           className="btn-p"
           style={{ fontSize: 13, padding: '10px 22px' }}
@@ -246,7 +260,6 @@ function InstructionPanel({
             fontSize: 12,
             color: '#64748b',
             textDecoration: 'none',
-            scrollBehavior: 'smooth',
           }}
           onClick={e => {
             e.preventDefault()
@@ -323,7 +336,7 @@ export default function SensorEmptyState({ onAddSensor, selectedType, onTypeSele
         <p style={{ fontSize: 14, color: '#94a3b8', maxWidth: 520, margin: '0 auto 28px', lineHeight: 1.7, position: 'relative' }}>
           A Breachr sensor is a lightweight container that runs silently inside your network. It discovers every connected device, maps open ports, and checks them against known vulnerabilities — giving you a live, risk-scored asset inventory without touching a single device.
         </p>
-        <button onClick={() => onAddSensor(selectedType)} className="btn-p" style={{ fontSize: 14, padding: '10px 28px', position: 'relative' }}>
+        <button type="button" onClick={() => onAddSensor(selectedType)} className="btn-p" style={{ fontSize: 14, padding: '10px 28px', position: 'relative' }}>
           + Add your first sensor
         </button>
       </div>
@@ -409,6 +422,7 @@ export default function SensorEmptyState({ onAddSensor, selectedType, onTypeSele
             return (
               <button
                 key={dt.id}
+                type="button"
                 onClick={() => onTypeSelect(dt.id)}
                 style={{
                   textAlign: 'left',
@@ -449,6 +463,7 @@ export default function SensorEmptyState({ onAddSensor, selectedType, onTypeSele
           {faqs.map((faq, i) => (
             <div key={i} style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
               <button
+                type="button"
                 onClick={() => setOpenFaq(openFaq === i ? null : i)}
                 style={{
                   width: '100%', textAlign: 'left', background: 'none', border: 'none',
