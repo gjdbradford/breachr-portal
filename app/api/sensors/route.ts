@@ -3,9 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as adminClient } from '@supabase/supabase-js'
 import { randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
-
-const VALID_DEPLOYMENT_TYPES = ['docker', 'raspberry_pi', 'synology', 'native'] as const
-type DeploymentType = typeof VALID_DEPLOYMENT_TYPES[number]
+import { VALID_DEPLOYMENT_TYPE_IDS, type DeploymentType } from '@/lib/sensor-types'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -23,7 +21,7 @@ export async function POST(req: NextRequest) {
   const location: string = (typeof rawLocation === 'string' ? rawLocation : '').trim()
   const rawDeploymentType = body.deployment_type
   const deploymentType: DeploymentType =
-    VALID_DEPLOYMENT_TYPES.includes(rawDeploymentType) ? rawDeploymentType : 'docker'
+    VALID_DEPLOYMENT_TYPE_IDS.includes(rawDeploymentType) ? rawDeploymentType : 'docker'
 
   if (!name) return NextResponse.json({ error: 'name is required' }, { status: 400 })
   if (name.length > 200)
