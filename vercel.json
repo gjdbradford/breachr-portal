@@ -7,7 +7,7 @@
     },
     {
       "path": "/api/crons/process-exports",
-      "schedule": "* * * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }
