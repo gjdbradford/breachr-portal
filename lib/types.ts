@@ -85,3 +85,20 @@ export const DORA_ARTICLES = [
   { ref: 'Art. 26',   name: 'TIBER-EU TLPT', desc: 'Significant entities only' },
   { ref: 'Art. 28–30', name: 'Third-party ICT Risk', desc: 'Vendor pen testing' },
 ]
+
+export interface DataExport {
+  id: string
+  tenant_id: string
+  requested_by: string
+  data_type: 'findings' | 'inventory' | 'audit_trail'
+  format: 'csv' | 'xlsx'
+  filters: Record<string, string>
+  status: 'pending' | 'processing' | 'ready' | 'failed' | 'expired'
+  file_path: string | null
+  row_count: number | null
+  error_msg: string | null
+  expires_at: string | null
+  created_at: string
+  completed_at: string | null
+  signed_url?: string | null  // generated on demand, not stored
+}
