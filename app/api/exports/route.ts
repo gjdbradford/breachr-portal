@@ -25,7 +25,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const body = await req.json()
+  let body: { data_type?: unknown; format?: unknown; filters?: unknown }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
   const { data_type, format, filters } = body
 
   if (!ALLOWED_TYPES.includes(data_type)) {
