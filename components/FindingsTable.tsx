@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import ExportButton from './ExportButton'
 
 type Finding = {
   id: string
@@ -47,6 +48,7 @@ export default function FindingsTable({
   sevCounts,
   availableTargets,
   availableScanTypes,
+  canExport,
 }: {
   findings: Finding[]
   filteredCount: number
@@ -56,6 +58,7 @@ export default function FindingsTable({
   sevCounts: Record<string, number>
   availableTargets: string[]
   availableScanTypes: string[]
+  canExport: boolean
 }) {
   const router      = useRouter()
   const searchParams = useSearchParams()
@@ -329,6 +332,7 @@ export default function FindingsTable({
             </button>
           </>
         )}
+        <ExportButton dataType="findings" canExport={canExport} />
       </div>
 
       {/* Table */}

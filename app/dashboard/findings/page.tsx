@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import FindingsTable from '@/components/FindingsTable'
+import FindingsEmptyState from '@/components/FindingsEmptyState'
 
 const PAGE_SIZE = 50
 
@@ -25,10 +26,11 @@ export default async function FindingsPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('users').select('tenant_id').eq('id', user.id).single()
+  const { data: profile } = await supabase.from('users').select('tenant_id, role').eq('id', user.id).single()
   if (!profile) redirect('/login')
 
   const tenantId = profile.tenant_id
+  const canExport = ['account_owner', 'admin'].includes((profile as any).role ?? '')
 
   // Parse filter params
   const sevFilter    = params.sev    ? params.sev.split(',').filter(Boolean)    : []
@@ -107,7 +109,7 @@ export default async function FindingsPage({
   if (!filteredBase) {
     return renderPage({
       findings: [], filteredCount: 0, totalCount, page,
-      sevCounts, availableTargets, availableScanTypes,
+      sevCounts, availableTargets, availableScanTypes, canExport,
     })
   }
 
@@ -133,12 +135,13 @@ export default async function FindingsPage({
     sevCounts,
     availableTargets,
     availableScanTypes,
+    canExport,
   })
 }
 
 function renderPage({
   findings, filteredCount, totalCount, page,
-  sevCounts, availableTargets, availableScanTypes,
+  sevCounts, availableTargets, availableScanTypes, canExport,
 }: {
   findings: any[]
   filteredCount: number
@@ -147,7 +150,22 @@ function renderPage({
   sevCounts: Record<string, number>
   availableTargets: string[]
   availableScanTypes: string[]
+  canExport: boolean
 }) {
+  if (totalCount === 0) {
+    return (
+      <div className="portal-content">
+        <div className="portal-header">
+          <div>
+            <h1 className="font-display" style={{ fontSize: 20, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.05em' }}>FINDINGS</h1>
+            <p style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>No findings yet</p>
+          </div>
+        </div>
+        <FindingsEmptyState />
+      </div>
+    )
+  }
+
   return (
     <div className="portal-content">
       <div className="portal-header">
@@ -166,6 +184,7 @@ function renderPage({
           sevCounts={sevCounts}
           availableTargets={availableTargets}
           availableScanTypes={availableScanTypes}
+          canExport={canExport}
         />
       </Suspense>
     </div>

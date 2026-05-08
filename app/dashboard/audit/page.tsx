@@ -31,10 +31,11 @@ export default async function AuditPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('users').select('tenant_id').eq('id', user.id).single()
+  const { data: profile } = await supabase.from('users').select('tenant_id, role').eq('id', user.id).single()
   if (!profile) redirect('/login')
 
   const tenantId = profile.tenant_id
+  const canExport = ['account_owner', 'admin'].includes((profile as any).role ?? '')
 
   // Parse filter params
   const groupFilter = params.group ?? ''           // 'scans' | 'findings' | 'reports' | 'admin'
@@ -95,6 +96,7 @@ export default async function AuditPage({
           totalCount={totalCount ?? 0}
           page={page}
           pageSize={PAGE_SIZE}
+          canExport={canExport}
         />
       </Suspense>
     </div>

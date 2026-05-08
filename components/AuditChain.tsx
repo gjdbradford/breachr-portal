@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { AuditLog } from '@/lib/types'
+import ExportButton from './ExportButton'
 
 const ACTION_META: Record<string, { label: string; icon: string; color: string }> = {
   'scan.launched':           { label: 'Scan Launched',      icon: '⟳', color: '#42a5f5' },
@@ -61,12 +62,14 @@ export default function AuditChain({
   totalCount,
   page,
   pageSize,
+  canExport,
 }: {
   entries: AuditLog[]
   filteredCount: number
   totalCount: number
   page: number
   pageSize: number
+  canExport: boolean
 }) {
   const router      = useRouter()
   const searchParams = useSearchParams()
@@ -202,6 +205,7 @@ export default function AuditChain({
             {filteredCount} of {totalCount} events
           </span>
         )}
+        <ExportButton dataType="audit_trail" canExport={canExport} />
       </div>
 
       {/* Timeline */}
