@@ -138,7 +138,7 @@ export default function DashboardNav({
   const tokensNear = tokensPct >= 80
 
   return (
-    <aside className={`sidebar${collapsed ? ' collapsed' : ''}`} style={{ position: 'relative' }}>
+    <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
       <button
         type="button"
         onClick={toggleCollapsed}
