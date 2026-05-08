@@ -149,6 +149,8 @@ export default function DashboardNav({
         {collapsed ? '›' : '‹'}
       </button>
 
+      <div className="sidebar-inner">
+
       {!collapsed && (
         <div style={{ padding: '20px 20px 12px', borderBottom: '1px solid rgba(25,118,210,0.08)' }}>
           <p style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tenantName}</p>
@@ -163,7 +165,7 @@ export default function DashboardNav({
 
           if (collapsed) {
             return (
-              <Link key={href} href={href} className={`rail-item${active ? ' active' : ''}`}>
+              <Link key={href} href={href} className={`rail-item${active ? ' active' : ''}`} onClick={toggleCollapsed}>
                 <span style={{ fontSize: 16 }}>{icon}</span>
                 <span className="rail-tooltip">
                   {label}
@@ -266,6 +268,8 @@ export default function DashboardNav({
           </Link>
         )}
       </div>}
+
+      </div>{/* end sidebar-inner */}
 
     </aside>
   )

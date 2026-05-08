@@ -73,9 +73,10 @@ select.form-input option { background:#0f172a; }
   border-right:1px solid rgba(25,118,210,0.1);
   padding:0; position:fixed; top:64px; left:0;
   height:calc(100vh - 64px); z-index:20;
-  transition:width 0.2s ease; overflow:hidden;
+  transition:width 0.2s ease; overflow:visible;
   display:flex; flex-direction:column;
 }
+.sidebar-inner { overflow:hidden; flex:1; display:flex; flex-direction:column; min-height:0; }
 .sidebar.collapsed { width:48px; }
 .sidebar-logo { padding:0 20px 24px; border-bottom:1px solid rgba(25,118,210,0.08); margin-bottom:16px; }
 .sidebar-link {
