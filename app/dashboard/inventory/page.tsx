@@ -1,6 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
+import InventoryEmptyState from '@/components/InventoryEmptyState'
+import InventoryTable from '@/components/InventoryTable'
+
+const PAGE_SIZE = 50
 
 function RiskBar({ counts }: { counts: Record<string, number> }) {
   const total = Object.values(counts).reduce((a, b) => a + b, 0)
@@ -22,27 +25,32 @@ function RiskBar({ counts }: { counts: Record<string, number> }) {
   )
 }
 
-export default async function InventoryPage() {
+export default async function InventoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>
+}) {
+  const params = await searchParams
   const supabase = await createClient()
+
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('users').select('tenant_id').eq('id', user.id).single()
+  const { data: profile } = await supabase.from('users').select('tenant_id, role').eq('id', user.id).single()
   if (!profile) redirect('/login')
 
-  const { data: assets } = await supabase
+  const page = Math.max(1, parseInt(params.p ?? '1') || 1)
+
+  const { data: assets, count: totalCount } = await supabase
     .from('assets')
-    .select('id, ip, mac, hostname, vendor, os_guess, last_seen, is_active, risk_score')
+    .select('id, ip, mac, hostname, vendor, os_guess, last_seen, is_active, risk_score, acknowledged_at, criticality, owner_name', { count: 'exact' })
     .eq('tenant_id', profile.tenant_id)
     .order('risk_score', { ascending: false })
+    .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
 
-  // Count open ports per asset
   const assetIds = (assets ?? []).map(a => a.id)
   const { data: portCounts } = assetIds.length > 0
-    ? await supabase
-        .from('asset_ports')
-        .select('asset_id')
-        .in('asset_id', assetIds)
+    ? await supabase.from('asset_ports').select('asset_id').in('asset_id', assetIds)
     : { data: [] }
 
   const portCountMap: Record<string, number> = {}
@@ -50,7 +58,6 @@ export default async function InventoryPage() {
     portCountMap[p.asset_id] = (portCountMap[p.asset_id] ?? 0) + 1
   }
 
-  // Risk severity counts
   const riskCounts = { critical: 0, high: 0, medium: 0, low: 0 }
   for (const a of assets ?? []) {
     const score = a.risk_score ?? 0
@@ -60,7 +67,10 @@ export default async function InventoryPage() {
     else if (score > 0)   riskCounts.low++
   }
 
-  const activeCount = (assets ?? []).filter(a => a.is_active).length
+  const activeCount  = (assets ?? []).filter(a => a.is_active).length
+  const unackedCount = (assets ?? []).filter(a => !a.acknowledged_at).length
+  const assetList    = assets ?? []
+  const total        = totalCount ?? 0
 
   return (
     <div className="portal-content">
@@ -68,78 +78,42 @@ export default async function InventoryPage() {
         <div>
           <h1 className="font-display" style={{ fontSize: 20, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.05em' }}>INVENTORY</h1>
           <p style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>
-            {activeCount} active assets · {(assets ?? []).length} total
+            {activeCount} active assets · {total} total
           </p>
         </div>
       </div>
 
-      {(assets ?? []).length > 0 && (
-        <div style={{ padding: '0 24px 16px' }}>
-          <RiskBar counts={riskCounts} />
-        </div>
-      )}
-
-      <div className="gs au1" style={{ padding: 24 }}>
-        {(assets ?? []).length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: '#475569' }}>
-            <p style={{ fontSize: 15, marginBottom: 8 }}>No assets discovered yet</p>
-            <p style={{ fontSize: 13, color: '#64748b' }}>
-              Deploy a sensor in your network to start discovering assets.{' '}
-              <Link href="/dashboard/sensors" style={{ color: '#42a5f5' }}>Add a sensor →</Link>
-            </p>
+      {assetList.length === 0 && total === 0 ? (
+        <InventoryEmptyState />
+      ) : (
+        <>
+          {unackedCount > 0 && (
+            <div style={{ margin: '0 24px 16px', padding: '10px 16px', borderRadius: 8,
+              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+              display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 14 }}>⚠</span>
+              <span style={{ fontSize: 13, color: '#fca5a5' }}>
+                <strong>{unackedCount} new {unackedCount === 1 ? 'device' : 'devices'} detected</strong>
+                {' '}— open each to acknowledge and clear this alert.
+              </span>
+            </div>
+          )}
+          <div style={{ padding: '0 24px 16px' }}>
+            <RiskBar counts={riskCounts} />
           </div>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>IP</th>
-                <th>Hostname</th>
-                <th>Vendor / OS</th>
-                <th>Ports</th>
-                <th>Risk</th>
-                <th>Last seen</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {(assets ?? []).map(a => {
-                const score = a.risk_score ?? 0
-                const riskColor = score >= 80 ? '#ef4444' : score >= 50 ? '#f97316' : score >= 20 ? '#f59e0b' : '#22c55e'
-                return (
-                  <tr key={a.id}>
-                    <td style={{ fontFamily: 'monospace', fontSize: 13, color: '#e2e8f0' }}>{a.ip}</td>
-                    <td style={{ fontSize: 12, color: '#94a3b8' }}>{a.hostname ?? '—'}</td>
-                    <td style={{ fontSize: 12, color: '#64748b' }}>
-                      {[a.vendor, a.os_guess].filter(Boolean).join(' · ') || '—'}
-                    </td>
-                    <td style={{ fontSize: 12, color: '#64748b' }}>{portCountMap[a.id] ?? 0}</td>
-                    <td>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: score > 0 ? riskColor : '#475569' }}>
-                        {score > 0 ? score : '—'}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: 12, color: '#64748b' }}>
-                      {new Date(a.last_seen).toLocaleDateString('en-GB')}
-                      {!a.is_active && (
-                        <span style={{ marginLeft: 6, fontSize: 10, color: '#475569',
-                          background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: 3 }}>
-                          offline
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <Link href={`/dashboard/inventory/${a.id}`} className="btn-s"
-                        style={{ fontSize: 12, padding: '4px 12px' }}>
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+          <div className="gs au1" style={{ padding: 24 }}>
+            <InventoryTable
+              assets={assetList}
+              portCountMap={portCountMap}
+              canClassify={['account_owner', 'admin'].includes(profile.role ?? '')}
+              canExport={['account_owner', 'admin'].includes(profile.role ?? '')}
+              page={page}
+              pageSize={PAGE_SIZE}
+              totalCount={total}
+            />
+          </div>
+        </>
+      )}
     </div>
   )
 }
