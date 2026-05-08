@@ -6,6 +6,14 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getPlan, fmtTokens } from '@/lib/plans'
+// Note: useRouter still needed for router.refresh() on scan count changes
+
+function readCollapsed(): boolean {
+  try { return localStorage.getItem('sidebar-collapsed') === 'true' } catch { return false }
+}
+function writeCollapsed(val: boolean) {
+  try { localStorage.setItem('sidebar-collapsed', String(val)) } catch { /* noop */ }
+}
 
 const links = [
   { href: '/dashboard',             label: 'Overview',    icon: '◈' },
@@ -16,7 +24,6 @@ const links = [
   { href: '/dashboard/inventory',   label: 'Inventory',   icon: '⬡' },
   { href: '/dashboard/sensors',     label: 'Sensors',     icon: '◉' },
   { href: '/dashboard/audit',       label: 'Audit Trail', icon: '⛓' },
-  { href: '/dashboard/settings',    label: 'Settings',    icon: '⚙' },
 ]
 
 export default function DashboardNav({
@@ -29,6 +36,7 @@ export default function DashboardNav({
   isSuperuser = false,
   tenantId,
   initialActiveScans = 0,
+  initialUnackedAssets = 0,
 }: {
   tenantName: string
   plan?: string
@@ -39,14 +47,31 @@ export default function DashboardNav({
   isSuperuser?: boolean
   tenantId?: string
   initialActiveScans?: number
+  initialUnackedAssets?: number
 }) {
   const pathname = usePathname()
   const router = useRouter()
   const plan = getPlan(planId)
   const [activeScans, setActiveScans] = useState(initialActiveScans)
+  const [unackedAssets, setUnackedAssets] = useState(initialUnackedAssets)
+  const [collapsed, setCollapsed] = useState(false)
+
+  useEffect(() => {
+    const val = readCollapsed()
+    setCollapsed(val)
+    if (val) document.body.classList.add('sidebar-collapsed')
+  }, [])
+
+  function toggleCollapsed() {
+    const next = !collapsed
+    setCollapsed(next)
+    writeCollapsed(next)
+    document.body.classList.toggle('sidebar-collapsed', next)
+  }
 
   // Sync with server-side value after router.refresh() re-renders the layout
   useEffect(() => { setActiveScans(initialActiveScans) }, [initialActiveScans])
+  useEffect(() => { setUnackedAssets(initialUnackedAssets) }, [initialUnackedAssets])
 
   useEffect(() => {
     if (!tenantId) return
@@ -83,6 +108,28 @@ export default function DashboardNav({
     }
   }, [tenantId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!tenantId) return
+    const supabase = createClient()
+
+    const refreshUnacked = () => {
+      supabase
+        .from('assets')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .is('acknowledged_at', null)
+        .then(({ count }) => setUnackedAssets(count ?? 0))
+    }
+
+    const channel = supabase
+      .channel(`nav-assets-${tenantId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'assets', filter: `tenant_id=eq.${tenantId}` }, refreshUnacked)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'assets', filter: `tenant_id=eq.${tenantId}` }, refreshUnacked)
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [tenantId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const scansPct   = scansLimit   ? Math.min(100, (scansThisMonth / scansLimit) * 100)     : 0
   const tokensPct  = tokensLimit  ? Math.min(100, (tokensThisMonth / tokensLimit) * 100)    : 0
   const scansAtLimit  = scansPct >= 100
@@ -90,49 +137,68 @@ export default function DashboardNav({
   const scansNear  = scansPct >= 80
   const tokensNear = tokensPct >= 80
 
-  async function handleSignOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
-
   return (
-    <aside className="sidebar">
-      <div style={{ padding: '24px 20px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#1976d2,#42a5f5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-          </div>
-          <span className="font-display" style={{ fontSize: 14, fontWeight: 900, color: '#fff', letterSpacing: '0.08em' }}>BREACHR</span>
-        </div>
-        <p style={{ fontSize: 11, color: '#64748b', paddingLeft: 42, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tenantName}</p>
-      </div>
+    <aside className={`sidebar${collapsed ? ' collapsed' : ''}`} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={toggleCollapsed}
+        className="sidebar-collapse-btn"
+        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      >
+        {collapsed ? '›' : '‹'}
+      </button>
 
-      <nav style={{ flex: 1, padding: '8px 12px' }}>
+      {!collapsed && (
+        <div style={{ padding: '20px 20px 12px', borderBottom: '1px solid rgba(25,118,210,0.08)' }}>
+          <p style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tenantName}</p>
+        </div>
+      )}
+
+      <nav style={{ flex: 1, padding: '8px 4px', overflow: 'visible' }}>
         {links.map(({ href, label, icon }) => {
           const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
-          const showBadge = href === '/dashboard/scans' && activeScans > 0
+          const showScansBadge = href === '/dashboard/scans' && activeScans > 0
+          const showInvBadge   = href === '/dashboard/inventory' && unackedAssets > 0
+
+          if (collapsed) {
+            return (
+              <Link key={href} href={href} className={`rail-item${active ? ' active' : ''}`}>
+                <span style={{ fontSize: 16 }}>{icon}</span>
+                <span className="rail-tooltip">
+                  {label}
+                  {showScansBadge && (
+                    <span style={{ marginLeft: 6, minWidth: 16, height: 16, borderRadius: 8, padding: '0 4px', background: '#42a5f5', color: '#0a0e1a', fontSize: 9, fontWeight: 800, fontFamily: 'monospace', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {activeScans}
+                    </span>
+                  )}
+                  {showInvBadge && (
+                    <span style={{ marginLeft: 6, minWidth: 16, height: 16, borderRadius: 8, padding: '0 4px', background: '#ef4444', color: '#fff', fontSize: 9, fontWeight: 800, fontFamily: 'monospace', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {unackedAssets}
+                    </span>
+                  )}
+                </span>
+              </Link>
+            )
+          }
+
           return (
             <Link key={href} href={href} className={`sidebar-link${active ? ' active' : ''}`}>
               <span style={{ fontSize: 16, width: 20, textAlign: 'center' }}>{icon}</span>
               <span style={{ flex: 1 }}>{label}</span>
-              {showBadge && (
-                <span style={{
-                  minWidth: 18, height: 18, borderRadius: 9, padding: '0 5px',
-                  background: '#42a5f5', color: '#0a0e1a',
-                  fontSize: 10, fontWeight: 800, fontFamily: 'monospace',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  animation: 'pulse 1.5s infinite',
-                }}>
+              {showScansBadge && (
+                <span style={{ minWidth: 18, height: 18, borderRadius: 9, padding: '0 5px', background: '#42a5f5', color: '#0a0e1a', fontSize: 10, fontWeight: 800, fontFamily: 'monospace', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'pulse 1.5s infinite' }}>
                   {activeScans}
+                </span>
+              )}
+              {showInvBadge && (
+                <span style={{ minWidth: 18, height: 18, borderRadius: 9, padding: '0 5px', background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 800, fontFamily: 'monospace', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {unackedAssets}
                 </span>
               )}
             </Link>
           )
         })}
-        {isSuperuser && (
+        {isSuperuser && !collapsed && (
           <>
             <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', margin: '8px 4px' }} />
             <a
@@ -149,8 +215,7 @@ export default function DashboardNav({
         )}
       </nav>
 
-      {/* Plan usage widget */}
-      <div style={{ margin: '0 12px 12px', padding: '12px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+      {!collapsed && <div style={{ margin: '0 12px 12px', padding: '12px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
         {/* Plan badge + upgrade link */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -199,18 +264,8 @@ export default function DashboardNav({
             {(scansAtLimit || tokensAtLimit) ? '🚫 Limit reached — upgrade' : '⚡ Approaching limit — upgrade'}
           </Link>
         )}
-      </div>
+      </div>}
 
-      <div style={{ padding: '0 12px 24px' }}>
-        <button
-          onClick={handleSignOut}
-          className="sidebar-link"
-          style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
-        >
-          <span style={{ fontSize: 16, width: 20, textAlign: 'center' }}>⏻</span>
-          <span>Sign Out</span>
-        </button>
-      </div>
     </aside>
   )
 }
