@@ -3,6 +3,8 @@ import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import ReportsTable from '@/components/ReportsTable'
 import GenerateReportButton from '@/components/GenerateReportButton'
+import ReportsEmptyState from '@/components/ReportsEmptyState'
+import ExportsTab from '@/components/ExportsTab'
 
 const PAGE_SIZE = 25
 
@@ -17,8 +19,9 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>
 }) {
-  const params   = await searchParams
-  const supabase = await createClient()
+  const params    = await searchParams
+  const activeTab = params.tab ?? 'reports'
+  const supabase  = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -93,6 +96,43 @@ export default async function ReportsPage({
     frameworkCounts[r.framework] = (frameworkCounts[r.framework] ?? 0) + 1
   }
 
+  const enabledFrameworks = tenantRow?.compliance_frameworks ?? []
+
+  if ((totalCount ?? 0) === 0) {
+    return (
+      <div className="portal-content">
+        <div className="portal-header">
+          <div>
+            <h1 className="font-display" style={{ fontSize: 20, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.05em' }}>REPORTS</h1>
+            <p style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>No reports yet</p>
+          </div>
+          <GenerateReportButton enabledFrameworks={enabledFrameworks} />
+        </div>
+        <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <a href="?" style={{
+            padding: '10px 20px', fontSize: 12, textDecoration: 'none',
+            color: activeTab !== 'exports' ? '#42a5f5' : '#64748b',
+            borderBottom: activeTab !== 'exports' ? '2px solid #42a5f5' : '2px solid transparent',
+            fontWeight: activeTab !== 'exports' ? 600 : 400,
+          }}>Compliance Reports</a>
+          <a href="?tab=exports" style={{
+            padding: '10px 20px', fontSize: 12, textDecoration: 'none',
+            color: activeTab === 'exports' ? '#42a5f5' : '#64748b',
+            borderBottom: activeTab === 'exports' ? '2px solid #42a5f5' : '2px solid transparent',
+            fontWeight: activeTab === 'exports' ? 600 : 400,
+          }}>Exports</a>
+        </div>
+        {activeTab === 'exports' ? (
+          <Suspense fallback={<div style={{ color: '#64748b', padding: 24 }}>Loading…</div>}>
+            <ExportsTab />
+          </Suspense>
+        ) : (
+          <ReportsEmptyState enabledFrameworks={enabledFrameworks} />
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="portal-content">
       <div className="portal-header">
@@ -100,20 +140,40 @@ export default async function ReportsPage({
           <h1 className="font-display" style={{ fontSize: 20, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.05em' }}>REPORTS</h1>
           <p style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>{orgCount ?? 0} organisational reports · {totalCount ?? 0} total</p>
         </div>
-        <GenerateReportButton enabledFrameworks={tenantRow?.compliance_frameworks ?? []} />
+        <GenerateReportButton enabledFrameworks={enabledFrameworks} />
       </div>
-      <Suspense fallback={<div style={{ color: '#64748b', padding: 24 }}>Loading…</div>}>
-        <ReportsTable
-          reports={(reports ?? []) as any[]}
-          filteredCount={filteredCount ?? 0}
-          totalCount={totalCount ?? 0}
-          page={page}
-          pageSize={PAGE_SIZE}
-          frameworkCounts={frameworkCounts}
-          enabledFrameworks={tenantRow?.compliance_frameworks ?? []}
-          orgCount={orgCount ?? 0}
-        />
-      </Suspense>
+      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <a href="?" style={{
+          padding: '10px 20px', fontSize: 12, textDecoration: 'none',
+          color: activeTab !== 'exports' ? '#42a5f5' : '#64748b',
+          borderBottom: activeTab !== 'exports' ? '2px solid #42a5f5' : '2px solid transparent',
+          fontWeight: activeTab !== 'exports' ? 600 : 400,
+        }}>Compliance Reports</a>
+        <a href="?tab=exports" style={{
+          padding: '10px 20px', fontSize: 12, textDecoration: 'none',
+          color: activeTab === 'exports' ? '#42a5f5' : '#64748b',
+          borderBottom: activeTab === 'exports' ? '2px solid #42a5f5' : '2px solid transparent',
+          fontWeight: activeTab === 'exports' ? 600 : 400,
+        }}>Exports</a>
+      </div>
+      {activeTab === 'exports' ? (
+        <Suspense fallback={<div style={{ color: '#64748b', padding: 24 }}>Loading…</div>}>
+          <ExportsTab />
+        </Suspense>
+      ) : (
+        <Suspense fallback={<div style={{ color: '#64748b', padding: 24 }}>Loading…</div>}>
+          <ReportsTable
+            reports={(reports ?? []) as any[]}
+            filteredCount={filteredCount ?? 0}
+            totalCount={totalCount ?? 0}
+            page={page}
+            pageSize={PAGE_SIZE}
+            frameworkCounts={frameworkCounts}
+            enabledFrameworks={enabledFrameworks}
+            orgCount={orgCount ?? 0}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }
