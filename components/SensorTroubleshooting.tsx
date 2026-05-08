@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import type { DeploymentType } from '@/lib/sensor-types'
+import { useHelpPanel } from '@/lib/help-panel-context'
 
 interface Issue {
   title: string
@@ -305,11 +306,11 @@ const NATIVE_DIAGNOSTICS: [string, string][] = [
 
 interface Props {
   selectedType?: DeploymentType
-  onOpenChat?: () => void
 }
 
-export default function SensorTroubleshooting({ selectedType, onOpenChat }: Props) {
+export default function SensorTroubleshooting({ selectedType }: Props) {
   const [open, setOpen] = useState<string | null>(null)
+  const { toggle } = useHelpPanel()
 
   useEffect(() => { setOpen(null) }, [selectedType])
 
@@ -330,33 +331,31 @@ export default function SensorTroubleshooting({ selectedType, onOpenChat }: Prop
     <div id="sensor-troubleshooting" style={{ padding: '32px 24px 48px', maxWidth: 860, margin: '0 auto' }}>
 
       {/* AI assistant banner */}
-      {onOpenChat && (
-        <div
-          onClick={onOpenChat}
-          style={{
-            marginBottom: 20,
-            padding: '14px 20px',
-            borderRadius: 10,
-            background: 'linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.1) 100%)',
-            border: '1px solid rgba(99,102,241,0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            cursor: 'pointer',
-            transition: 'border-color 0.15s',
-          }}
-        >
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#a5b4fc', margin: 0 }}>
-              Still stuck? Ask the Breachr AI assistant
-            </p>
-            <p style={{ fontSize: 11, color: '#64748b', margin: '2px 0 0' }}>
-              Only answers questions about sensor setup and troubleshooting
-            </p>
-          </div>
-          <span style={{ fontSize: 20, color: '#818cf8', flexShrink: 0, marginLeft: 12 }}>→</span>
+      <div
+        onClick={toggle}
+        style={{
+          marginBottom: 20,
+          padding: '14px 20px',
+          borderRadius: 10,
+          background: 'linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.1) 100%)',
+          border: '1px solid rgba(99,102,241,0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          cursor: 'pointer',
+          transition: 'border-color 0.15s',
+        }}
+      >
+        <div>
+          <p style={{ fontSize: 13, fontWeight: 600, color: '#a5b4fc', margin: 0 }}>
+            Still stuck? Ask the Breachr AI assistant
+          </p>
+          <p style={{ fontSize: 11, color: '#64748b', margin: '2px 0 0' }}>
+            Only answers questions about sensor setup and troubleshooting
+          </p>
         </div>
-      )}
+        <span style={{ fontSize: 20, color: '#818cf8', flexShrink: 0, marginLeft: 12 }}>→</span>
+      </div>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>

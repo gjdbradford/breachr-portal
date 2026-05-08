@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useRegisterHelpContent } from '@/lib/help-panel-context'
 import SensorRegistrationModal from './SensorRegistrationModal'
 import SensorEmptyState from './SensorEmptyState'
 import SensorTroubleshooting from './SensorTroubleshooting'
-import SensorHelpChat from './SensorHelpChat'
 import { DEPLOYMENT_TYPES, VALID_DEPLOYMENT_TYPE_IDS } from '@/lib/sensor-types'
 import type { DeploymentType } from '@/lib/sensor-types'
 
@@ -29,8 +29,20 @@ export default function SensorsClient({ sensors, assetCountMap }: Props) {
     const t = sensors[0]?.deployment_type
     return VALID_DEPLOYMENT_TYPE_IDS.includes(t as DeploymentType) ? t as DeploymentType : 'docker'
   })
-  const [chatOpen, setChatOpen] = useState(false)
   const router = useRouter()
+
+  useRegisterHelpContent({
+    title: 'Sensor Assistant',
+    defaultTab: 'chat',
+    chatContextKey: 'sensors',
+    guides: [
+      { title: 'Deploy a Docker sensor', description: 'Linux host with --network host' },
+      { title: 'Deploy on Raspberry Pi', description: '64-bit OS, Docker arm64' },
+      { title: 'Deploy on Synology NAS', description: 'Container Manager, host network' },
+      { title: 'Deploy with systemd', description: 'Native Linux, auto-restart on boot' },
+      { title: 'Sensor offline checklist', description: 'Connectivity, firewall, service status' },
+    ],
+  })
 
   function isActive(sensor: Sensor) {
     if (!sensor.last_seen) return false
@@ -57,14 +69,11 @@ export default function SensorsClient({ sensors, assetCountMap }: Props) {
           onTypeSelect={setSelectedType}
         />
         <div>
-          <SensorTroubleshooting selectedType={selectedType} onOpenChat={() => setChatOpen(true)} />
+          <SensorTroubleshooting selectedType={selectedType} />
         </div>
-        <SensorHelpChat deploymentType={selectedType} isOpen={chatOpen} onClose={() => setChatOpen(false)} />
       </>
     )
   }
-
-  const firstSensor = sensors[0]
 
   return (
     <>
@@ -133,19 +142,8 @@ export default function SensorsClient({ sensors, assetCountMap }: Props) {
       </div>
 
       <div>
-        <SensorTroubleshooting selectedType={selectedType} onOpenChat={() => setChatOpen(true)} />
+        <SensorTroubleshooting selectedType={selectedType} />
       </div>
-      <SensorHelpChat
-        deploymentType={selectedType}
-        sensor={{
-          id: firstSensor.id,
-          status: firstSensor.status,
-          last_seen: firstSensor.last_seen,
-          deployment_type: firstSensor.deployment_type,
-        }}
-        isOpen={chatOpen}
-        onClose={() => setChatOpen(false)}
-      />
     </>
   )
 }
