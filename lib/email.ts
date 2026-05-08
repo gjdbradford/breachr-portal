@@ -110,6 +110,7 @@ export async function sendExportReadyEmail({
   rowCount,
   expiresAt,
   portalUrl,
+  requestedAt,
 }: {
   to: string
   dataType: string
@@ -117,6 +118,7 @@ export async function sendExportReadyEmail({
   rowCount: number
   expiresAt: string
   portalUrl: string
+  requestedAt: string
 }) {
   const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
   if (!resend) return
@@ -126,7 +128,10 @@ export async function sendExportReadyEmail({
   }
   const dataTypeLabel = labelMap[dataType] ?? dataType
   const formatLabel   = format === 'xlsx' ? 'Excel (.xlsx)' : 'CSV'
-  const expiryDate    = new Date(expiresAt).toLocaleDateString('en-GB', {
+  const expiryDate     = new Date(expiresAt).toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  })
+  const requestedDate  = new Date(requestedAt).toLocaleDateString('en-GB', {
     day: 'numeric', month: 'long', year: 'numeric',
   })
 
@@ -190,8 +195,7 @@ export async function sendExportReadyEmail({
 
         <tr><td style="padding:16px 32px;border-top:1px solid rgba(255,255,255,0.06);">
           <p style="margin:0;font-size:11px;color:#334155;">
-            Only admins and account owners can generate exports.
-            <a href="${portalUrl}/dashboard/settings" style="color:#42a5f5;">Manage settings</a>
+            Requested by you on ${requestedDate}. Only admins and account owners can generate exports.
           </p>
         </td></tr>
 
