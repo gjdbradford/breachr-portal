@@ -104,8 +104,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ ok: true, processed, expired: expired?.length ?? 0 })
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchRows(
-  admin: ReturnType<typeof adminClient>,
+  admin: any,
   dataType: string,
   tenantId: string,
   filters: Record<string, string>,
@@ -116,7 +117,8 @@ async function fetchRows(
   return []
 }
 
-async function fetchFindings(admin: ReturnType<typeof adminClient>, tenantId: string, filters: Record<string, string>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchFindings(admin: any, tenantId: string, filters: Record<string, string>) {
   let q = admin.from('findings')
     .select('title, severity, cvss_score, owasp_category, status, created_at, scans(scan_type, attack_surfaces(name))')
     .eq('tenant_id', tenantId)
@@ -143,7 +145,8 @@ async function fetchFindings(admin: ReturnType<typeof adminClient>, tenantId: st
   }))
 }
 
-async function fetchInventory(admin: ReturnType<typeof adminClient>, tenantId: string) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchInventory(admin: any, tenantId: string) {
   const { data } = await admin.from('assets')
     .select('ip, hostname, vendor, os_guess, criticality, owner_name, risk_score, is_active, last_seen, acknowledged_at')
     .eq('tenant_id', tenantId)
@@ -163,7 +166,8 @@ async function fetchInventory(admin: ReturnType<typeof adminClient>, tenantId: s
   }))
 }
 
-async function fetchAuditTrail(admin: ReturnType<typeof adminClient>, tenantId: string, filters: Record<string, string>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchAuditTrail(admin: any, tenantId: string, filters: Record<string, string>) {
   let q = admin.from('audit_logs')
     .select('action, detail, created_at')
     .eq('tenant_id', tenantId)

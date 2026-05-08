@@ -31,7 +31,9 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
-  const { data_type, format, filters } = body
+  const data_type = String(body.data_type ?? '')
+  const format    = String(body.format ?? '')
+  const filters   = (body.filters ?? {}) as Record<string, string>
 
   if (!ALLOWED_TYPES.includes(data_type)) {
     return NextResponse.json({ error: 'Invalid data_type' }, { status: 400 })
