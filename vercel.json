@@ -4,6 +4,10 @@
     {
       "path": "/api/crons/cve-enrichment",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/crons/process-exports",
+      "schedule": "* * * * *"
     }
   ]
 }
