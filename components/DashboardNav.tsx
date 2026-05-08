@@ -1,12 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getPlan, fmtTokens } from '@/lib/plans'
-// Note: useRouter still needed for router.refresh() on scan count changes
 
 function readCollapsed(): boolean {
   try { return localStorage.getItem('sidebar-collapsed') === 'true' } catch { return false }
@@ -57,16 +55,18 @@ export default function DashboardNav({
   const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
-    const val = readCollapsed()
-    setCollapsed(val)
-    if (val) document.body.classList.add('sidebar-collapsed')
+    document.body.classList.toggle('sidebar-collapsed', collapsed)
+    return () => { document.body.classList.remove('sidebar-collapsed') }
+  }, [collapsed])
+
+  useEffect(() => {
+    setCollapsed(readCollapsed())
   }, [])
 
   function toggleCollapsed() {
     const next = !collapsed
     setCollapsed(next)
     writeCollapsed(next)
-    document.body.classList.toggle('sidebar-collapsed', next)
   }
 
   // Sync with server-side value after router.refresh() re-renders the layout
@@ -143,6 +143,7 @@ export default function DashboardNav({
         type="button"
         onClick={toggleCollapsed}
         className="sidebar-collapse-btn"
+        aria-expanded={!collapsed}
         aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
         {collapsed ? '›' : '‹'}
