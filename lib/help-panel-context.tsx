@@ -49,6 +49,7 @@ export function useRegisterHelpContent(config: HelpPanelConfig) {
   useEffect(() => {
     registerContent(config)
     return () => { close() }
+  // config is intentionally excluded — it's static per page mount and passed inline (new reference each render)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [registerContent, close])
 }
