@@ -15,8 +15,9 @@ function nextId() { return String(++msgId) }
 
 function capHistory(msgs: Message[]): Message[] {
   if (msgs.length <= 10) return msgs
-  const excess = msgs.length - 10
-  return msgs.slice(excess % 2 === 0 ? excess : excess + 1)
+  const sliced = msgs.slice(msgs.length - 10)
+  const firstUserIdx = sliced.findIndex(m => m.role === 'user')
+  return firstUserIdx > 0 ? sliced.slice(firstUserIdx) : sliced
 }
 
 export default function HelpPanel() {
@@ -26,6 +27,14 @@ export default function HelpPanel() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const messagesRef = useRef<Message[]>([])
+  messagesRef.current = messages
+  const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    abortRef.current?.abort()
+    setLoading(false)
+  }, [config?.chatContextKey])
 
   useEffect(() => {
     if (config?.defaultTab) setActiveTab(config.defaultTab)
@@ -45,7 +54,8 @@ export default function HelpPanel() {
     setLoading(true)
 
     try {
-      const history = capHistory([...messages, userMsg])
+      const history = capHistory([...messagesRef.current, userMsg])
+      abortRef.current = new AbortController()
       const res = await fetch('/api/help/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,6 +63,7 @@ export default function HelpPanel() {
           messages: history.map(m => ({ role: m.role, content: m.content })),
           contextKey: config?.chatContextKey ?? 'generic',
         }),
+        signal: abortRef.current.signal,
       })
 
       if (res.ok) {
@@ -62,7 +73,8 @@ export default function HelpPanel() {
       } else {
         setMessages(prev => [...prev, { id: nextId(), role: 'assistant', content: 'Something went wrong. Please try again.', isError: true }])
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
       setMessages(prev => [...prev, { id: nextId(), role: 'assistant', content: 'Something went wrong. Please try again.', isError: true }])
     } finally {
       setLoading(false)
