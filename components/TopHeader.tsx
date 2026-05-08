@@ -21,9 +21,9 @@ export default function TopHeader({
 
   return (
     <header className={`top-header${scrollDir === 'down' ? ' hidden' : ''}`}>
-      {/* Logo — links to dashboard */}
       <Link
         href="/dashboard"
+        aria-label="BREACHR home"
         style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}
       >
         <div style={{
@@ -31,7 +31,7 @@ export default function TopHeader({
           background: 'linear-gradient(135deg,#1976d2,#42a5f5)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" aria-hidden="true" focusable="false">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
           </svg>
         </div>
@@ -40,9 +40,7 @@ export default function TopHeader({
         </span>
       </Link>
 
-      {/* Right controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        {/* Help / AI panel toggle */}
         <button
           type="button"
           onClick={toggle}
@@ -54,13 +52,12 @@ export default function TopHeader({
             background: isOpen ? 'rgba(66,165,245,0.08)' : 'rgba(255,255,255,0.03)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: 'pointer', color: isOpen ? '#42a5f5' : '#64748b',
-            fontSize: 14, fontWeight: 700, transition: 'all 0.15s',
+            fontSize: 14, fontWeight: 700,
           }}
         >
           ?
         </button>
 
-        {/* Avatar */}
         <UserAvatarMenu
           email={email}
           firstName={firstName}
