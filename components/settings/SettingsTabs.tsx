@@ -46,7 +46,7 @@ export default function SettingsTabs({
         ))}
       </div>
 
-      {activeTab === 'profile'    && <ProfileTab tenant={tenant} user={user} tenantId={tenantId} />}
+      {activeTab === 'profile'    && <ProfileTab tenant={tenant} user={user} tenantId={tenantId} currentUserId={currentUserId} />}
       {activeTab === 'compliance' && <ComplianceTab frameworks={tenant.compliance_frameworks} tenantId={tenantId} />}
       {activeTab === 'team'       && <TeamTab currentUserId={currentUserId} currentUserRole={user.role} />}
     </div>

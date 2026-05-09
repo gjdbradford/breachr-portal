@@ -9,7 +9,7 @@ export default async function SettingsPage() {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('tenant_id, email, role')
+    .select('tenant_id, email, role, phone')
     .eq('id', user.id)
     .single()
   if (!profile) redirect('/login')
@@ -21,7 +21,7 @@ export default async function SettingsPage() {
     .single()
 
   const tenantData = tenant ?? { name: '', industry: '', company_size: '', country: null, compliance_frameworks: [] }
-  const userData   = { email: profile.email ?? user.email ?? '', role: profile.role ?? 'member' }
+  const userData   = { email: profile.email ?? user.email ?? '', role: profile.role ?? 'member', phone: profile.phone ?? '' }
 
   return (
     <div className="portal-content">
