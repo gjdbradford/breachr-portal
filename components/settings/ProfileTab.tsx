@@ -154,7 +154,11 @@ export default function ProfileTab({
   const [saving, setSaving]           = useState(false)
   const [saveMsg, setSaveMsg]         = useState('')
 
-  const [phone, setPhone]             = useState(user.phone ?? '')
+  const [phone, setPhone] = useState(() => {
+    const raw = user.phone ?? ''
+    const dial = COUNTRIES.find(c => c.code === (tenant.country ?? ''))?.dial ?? ''
+    return dial && raw.startsWith(dial + ' ') ? raw.slice(dial.length + 1) : raw
+  })
   const [savingPhone, setSavingPhone] = useState(false)
   const [phoneMsg, setPhoneMsg]       = useState('')
 
