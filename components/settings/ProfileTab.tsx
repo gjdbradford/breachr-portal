@@ -154,7 +154,9 @@ export default function ProfileTab({
   const [saving, setSaving]           = useState(false)
   const [saveMsg, setSaveMsg]         = useState('')
 
-  const [phone, setPhone] = useState(user.phone ?? '')
+  const [phone, setPhone] = useState(() =>
+    (user.phone ?? '').replace(/^(\+[\d-]+\s+)+/, '').trim()
+  )
   const [savingPhone, setSavingPhone] = useState(false)
   const [phoneMsg, setPhoneMsg]       = useState('')
 
