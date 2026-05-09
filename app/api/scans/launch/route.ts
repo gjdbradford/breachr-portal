@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { logAuditEvent } from '@/lib/audit-log'
 
 export async function POST(req: Request) {
   const supabase = await createClient()
@@ -67,6 +68,13 @@ export async function POST(req: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logAuditEvent({
+    tenantId: profile.tenant_id,
+    userId:   user.id,
+    action:   'scan.queued',
+    detail:   { scanId: scan.id, attack_surface_id, scan_type: scan_type ?? 'full' },
+  }).catch(() => {})
 
   return NextResponse.json({ scanId: scan.id })
 }

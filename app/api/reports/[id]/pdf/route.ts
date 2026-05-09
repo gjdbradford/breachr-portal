@@ -4,6 +4,7 @@ import { createClient as adminClient } from '@supabase/supabase-js'
 import { createHash } from 'crypto'
 import { Document, Page, Text, View, StyleSheet, renderToBuffer } from '@react-pdf/renderer'
 import { createElement as h } from 'react'
+import { logAuditEvent } from '@/lib/audit-log'
 
 export const runtime = 'nodejs'
 
@@ -268,6 +269,13 @@ export async function GET(
     .from('compliance_reports')
     .update({ pdf_hash: pdfHash, pdf_generated_at: pdfGeneratedAt })
     .eq('id', id)
+
+  await logAuditEvent({
+    tenantId: profile.tenant_id,
+    userId:   user.id,
+    action:   'report.exported',
+    detail:   { reportId: id, framework: report.framework, mode, pdfHash },
+  }).catch(() => {})
 
   const filename = `breachr-${report.framework.toLowerCase()}-${id.slice(0, 8)}-${mode}.pdf`
 

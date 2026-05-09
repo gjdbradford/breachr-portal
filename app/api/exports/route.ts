@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as adminClient } from '@supabase/supabase-js'
+import { logAuditEvent } from '@/lib/audit-log'
 
 const ALLOWED_ROLES   = ['admin', 'account_owner']
 const ALLOWED_TYPES   = ['findings', 'inventory', 'audit_trail']
@@ -55,6 +56,14 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logAuditEvent({
+    tenantId: profile.tenant_id,
+    userId:   user.id,
+    action:   'export.requested',
+    detail:   { exportId: data.id, data_type, format },
+  }).catch(() => {})
+
   return NextResponse.json({ id: data.id })
 }
 

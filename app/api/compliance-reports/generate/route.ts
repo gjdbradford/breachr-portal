@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as adminClient } from '@supabase/supabase-js'
 import { createHash } from 'crypto'
 import { getControls, type Framework } from '@/lib/frameworks'
+import { logAuditEvent } from '@/lib/audit-log'
 
 const VALID_FRAMEWORKS: Framework[] = ['DORA', 'NIS2', 'PCI-DSS']
 const VALID_PERIODS = [30, 90, 365]
@@ -171,6 +172,14 @@ async function handlePost(req: NextRequest) {
     console.error('Failed to insert compliance report', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  await logAuditEvent({
+    tenantId,
+    userId:  user?.id ?? null,
+    action:  'report.generated',
+    detail:  { reportId: report.id, framework, periodDays, scanCount: scanIds.length },
+  }).catch(() => {})
 
   return NextResponse.json({ reportId: report.id })
 }
