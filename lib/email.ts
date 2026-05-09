@@ -24,7 +24,7 @@ export async function sendNewDeviceAlert({
   const portalUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://breachr-portal.vercel.app'
 
   await resend.emails.send({
-    from: 'Breachr Alerts <alerts@breachr.io>',
+    from: process.env.RESEND_FROM ?? 'Breachr <onboarding@breachr.ai>',
     to,
     subject: `New device on your network: ${deviceLabel}`,
     html: `
@@ -136,7 +136,7 @@ export async function sendExportReadyEmail({
   })
 
   await resend.emails.send({
-    from: 'Breachr Alerts <alerts@breachr.io>',
+    from: process.env.RESEND_FROM ?? 'Breachr <onboarding@breachr.ai>',
     to,
     subject: `Your ${dataTypeLabel} export is ready`,
     html: `
