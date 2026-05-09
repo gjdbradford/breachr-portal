@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient as adminClient } from '@supabase/supabase-js'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
+import { sendNewDeviceAlert } from '@/lib/email'
+import { logAuditEvent } from '@/lib/audit-log'
 
 const PortSchema = z.object({
   port:     z.number().int().min(1).max(65535),
@@ -47,7 +49,7 @@ export async function POST(
   // Validate sensor token
   const { data: sensor } = await admin
     .from('sensors')
-    .select('id, tenant_id, token_hash, status')
+    .select('id, tenant_id, token_hash, status, name')
     .eq('id', sensorId)
     .single()
 
@@ -72,7 +74,15 @@ export async function POST(
 
   const CONCURRENCY = 30
 
-  type AssetResult = { id: string; ports: z.infer<typeof PortSchema>[] }
+  type AssetResult = {
+    id: string
+    ports: z.infer<typeof PortSchema>[]
+    isNew: boolean
+    ip: string
+    mac: string
+    hostname: string | null
+    vendor: string | null
+  }
   const assetResults: AssetResult[] = []
   let upserted = 0
 
@@ -97,10 +107,59 @@ export async function POST(
         const row = rows?.[0]
         if (!row) return null
         upserted++
-        return { id: row.id, ports: asset.ports }
+        return {
+          id:       row.id,
+          ports:    asset.ports,
+          isNew:    row.is_new as boolean,
+          ip:       asset.ip,
+          mac:      asset.mac,
+          hostname: asset.hostname ?? null,
+          vendor:   asset.vendor ?? null,
+        }
       })
     )
     assetResults.push(...settled.filter((r): r is AssetResult => r !== null))
+  }
+
+  // Fire email alerts for brand-new assets (fire-and-forget)
+  const newAssets = assetResults.filter(r => r.isNew)
+  if (newAssets.length > 0) {
+    ;(async () => {
+      try {
+        const { data: members } = await admin.from('users').select('id').eq('tenant_id', sensor.tenant_id)
+        const authResults = await Promise.all((members ?? []).map(m => admin.auth.admin.getUserById(m.id)))
+        const emails = authResults.flatMap(r => r.data.user?.email ? [r.data.user.email] : [])
+        for (const asset of newAssets) {
+          for (const email of emails) {
+            sendNewDeviceAlert({
+              to:             email,
+              deviceIp:       asset.ip,
+              deviceMac:      asset.mac,
+              deviceHostname: asset.hostname,
+              deviceVendor:   asset.vendor,
+              sensorName:     (sensor as { name?: string }).name ?? null,
+              assetId:        asset.id,
+            })
+          }
+        }
+      } catch (err) {
+        console.error('[heartbeat] email dispatch failed:', err)
+      }
+    })()
+  }
+
+  // Audit log new device discoveries sequentially (chain integrity requires sequential writes)
+  if (newAssets.length > 0) {
+    ;(async () => {
+      for (const asset of newAssets) {
+        await logAuditEvent({
+          tenantId: sensor.tenant_id,
+          userId:   null,
+          action:   'asset.discovered',
+          detail:   { assetId: asset.id, ip: asset.ip, mac: asset.mac, hostname: asset.hostname, sensorId },
+        }).catch(err => console.error('[heartbeat] audit log failed:', err))
+      }
+    })()
   }
 
   // Single bulk port upsert for all assets

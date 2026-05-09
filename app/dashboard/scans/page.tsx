@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import LaunchScanButton from '@/components/LaunchScanButton'
+import ScansEmptyState from '@/components/ScansEmptyState'
 
 const STATUS_COLOR: Record<string, string> = {
   complete: '#22c55e',
@@ -116,7 +117,17 @@ export default async function ScansPage() {
         </div>
       )}
 
-      <div className="gs au1" style={{ overflow: 'hidden' }}>
+      {(!scans || scans.length === 0) && (
+        <ScansEmptyState
+          surfaces={surfaces ?? []}
+          tenantId={tenantId}
+          planId={tenant?.plan ?? 'free'}
+          scansThisMonth={tenant?.scans_this_month ?? 0}
+          tokensThisMonth={tenant?.tokens_used_this_month ?? 0}
+        />
+      )}
+
+      <div className="gs au1" style={{ overflow: 'hidden', display: scans && scans.length > 0 ? 'block' : 'none' }}>
         {scans && scans.length > 0 ? (
           <table className="data-table">
             <thead>
@@ -222,16 +233,7 @@ export default async function ScansPage() {
               })}
             </tbody>
           </table>
-        ) : (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: '#475569' }}>
-            <p style={{ fontSize: 36, marginBottom: 12 }}>◎</p>
-            <p style={{ fontSize: 15, color: '#64748b', marginBottom: 8 }}>No scans yet</p>
-            <p style={{ fontSize: 13, marginBottom: 24 }}>Launch your first scan to start finding vulnerabilities.</p>
-            {surfaces && surfaces.length === 0 && (
-              <Link href="/dashboard/targets" className="btn-p" style={{ fontSize: 13 }}>Add a Target First →</Link>
-            )}
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   )

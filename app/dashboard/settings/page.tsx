@@ -35,6 +35,7 @@ export default async function SettingsPage() {
         tenant={tenantData}
         user={userData}
         tenantId={profile.tenant_id}
+        currentUserId={user.id}
       />
     </div>
   )

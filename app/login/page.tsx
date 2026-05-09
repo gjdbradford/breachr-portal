@@ -13,7 +13,16 @@ export default function LoginPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const e = params.get('error')
-    if (e) setError(decodeURIComponent(e))
+    if (e) {
+      const known: Record<string, string> = {
+        invite_link_expired: 'This invite link has expired or already been used. Ask the account owner to send a new one.',
+        invite_link_invalid: 'Invalid invite link. Ask the account owner to send a new one.',
+        auth_failed:         'Authentication failed. Please try again or request a new link.',
+        no_token:            'No authentication token found.',
+        invalid_token:       'Invalid authentication token.',
+      }
+      setError(known[e] ?? decodeURIComponent(e))
+    }
 
     // If already authenticated, go to dashboard (client-side to avoid proxy loop)
     const supabase = createClient()
@@ -82,7 +91,7 @@ export default function LoginPage() {
           </form>
 
           <div style={{ marginTop: 20, textAlign: 'center' }}>
-            <a href="https://hvdwvzgtfhgntdcnwheu.supabase.co/auth/v1/recover" style={{ color: '#42a5f5', fontSize: 12 }}>
+            <a href="/auth/forgot-password" style={{ color: '#42a5f5', fontSize: 12 }}>
               Forgot password?
             </a>
           </div>

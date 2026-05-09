@@ -44,8 +44,10 @@ export default function GenerateReportButton({
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ framework, period_days: periodDays }),
       })
-      const body = await res.json()
-      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`)
+      const text = await res.text()
+      let body: { error?: string; reportId?: string } = {}
+      try { body = JSON.parse(text) } catch { /* non-JSON response — body stays empty */ }
+      if (!res.ok) throw new Error(body.error ?? `Server error ${res.status}`)
       if (!body.reportId) throw new Error('Server returned no report ID')
       setOpen(false)
       router.push(`/dashboard/reports/${body.reportId}`)

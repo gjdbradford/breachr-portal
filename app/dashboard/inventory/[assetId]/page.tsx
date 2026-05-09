@@ -1,6 +1,8 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import AcknowledgeOnMount from '@/components/AcknowledgeOnMount'
+import AssetClassificationCard from '@/components/AssetClassificationCard'
 
 const SEVERITY_COLORS: Record<string, string> = {
   critical: '#ef4444', high: '#f97316', medium: '#f59e0b', low: '#22c55e',
@@ -16,7 +18,7 @@ export default async function AssetDetailPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('users').select('tenant_id').eq('id', user.id).single()
+  const { data: profile } = await supabase.from('users').select('tenant_id, role').eq('id', user.id).single()
   if (!profile) redirect('/login')
 
   const [
@@ -26,7 +28,7 @@ export default async function AssetDetailPage({
   ] = await Promise.all([
     supabase
       .from('assets')
-      .select('id, ip, mac, hostname, vendor, os_guess, first_seen, last_seen, is_active, risk_score, sensor_id')
+      .select('id, ip, mac, hostname, vendor, os_guess, first_seen, last_seen, is_active, risk_score, sensor_id, acknowledged_at, criticality, asset_type_label, department, owner_name, owner_email, physical_location, classification_notes, classified_at')
       .eq('id', assetId)
       .eq('tenant_id', profile.tenant_id)
       .single(),
@@ -55,6 +57,7 @@ export default async function AssetDetailPage({
 
   return (
     <div className="portal-content">
+      {!asset.acknowledged_at && <AcknowledgeOnMount assetId={asset.id} />}
       <div className="portal-header">
         <div>
           <div style={{ marginBottom: 4 }}>
@@ -120,6 +123,21 @@ export default async function AssetDetailPage({
           </table>
         )}
       </div>
+
+      <AssetClassificationCard
+        assetId={asset.id}
+        userRole={profile.role ?? 'member'}
+        initial={{
+          criticality:          asset.criticality          ?? null,
+          asset_type_label:     asset.asset_type_label     ?? null,
+          department:           asset.department           ?? null,
+          owner_name:           asset.owner_name           ?? null,
+          owner_email:          asset.owner_email          ?? null,
+          physical_location:    asset.physical_location    ?? null,
+          classification_notes: asset.classification_notes ?? null,
+          classified_at:        asset.classified_at        ?? null,
+        }}
+      />
 
       <div className="gs au1" style={{ padding: 24 }}>
         <h2 style={{ fontSize: 13, fontWeight: 700, color: '#64748b', letterSpacing: '0.08em', marginBottom: 16 }}>
