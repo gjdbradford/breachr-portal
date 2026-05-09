@@ -111,7 +111,7 @@ export default function OnboardingPage() {
       setUserId(user.id)
 
       const { data: profile } = await supabase
-        .from('users').select('tenant_id').eq('id', user.id).single()
+        .from('users').select('tenant_id').eq('supabase_uid', user.id).single()
       if (!profile) { setLoadingProfile(false); return }
 
       setTenantId(profile.tenant_id)

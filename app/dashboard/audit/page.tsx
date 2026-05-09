@@ -31,7 +31,7 @@ export default async function AuditPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('users').select('tenant_id, role').eq('id', user.id).single()
+  const { data: profile } = await supabase.from('users').select('tenant_id, role').eq('supabase_uid', user.id).single()
   if (!profile) redirect('/login')
 
   const tenantId = profile.tenant_id

@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
         const { data: profile } = await supabase
           .from('users')
           .select('tenant_id')
-          .eq('id', user.id)
+          .eq('supabase_uid', user.id)
           .single()
         tenantId = profile?.tenant_id ?? null
       }

@@ -24,7 +24,7 @@ export async function PATCH(
 
   const admin = adminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-  const { data: profile } = await admin.from('users').select('tenant_id, role').eq('id', user.id).single()
+  const { data: profile } = await admin.from('users').select('tenant_id, role').eq('supabase_uid', user.id).single()
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!['account_owner', 'admin'].includes(profile.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

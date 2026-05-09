@@ -16,7 +16,7 @@ export async function DELETE(
   const { data: profile } = await admin
     .from('users')
     .select('tenant_id, role')
-    .eq('id', user.id)
+    .eq('supabase_uid', user.id)
     .single()
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (profile.role !== 'account_owner') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

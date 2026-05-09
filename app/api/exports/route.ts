@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile } = await supabase
-    .from('users').select('tenant_id, role').eq('id', user.id).single()
+    .from('users').select('tenant_id, role').eq('supabase_uid', user.id).single()
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!ALLOWED_ROLES.includes(profile.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -79,7 +79,7 @@ export async function GET(_req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile } = await supabase
-    .from('users').select('tenant_id').eq('id', user.id).single()
+    .from('users').select('tenant_id').eq('supabase_uid', user.id).single()
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = admin()

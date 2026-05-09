@@ -11,27 +11,27 @@ export async function DELETE(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  if (userId === user.id) {
-    return NextResponse.json({ error: 'Cannot remove yourself' }, { status: 403 })
-  }
-
   const admin = adminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
   const { data: profile } = await admin
     .from('users')
     .select('tenant_id, role')
-    .eq('id', user.id)
+    .eq('supabase_uid', user.id)
     .single()
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (profile.role !== 'account_owner') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { data: target } = await admin
     .from('users')
-    .select('role, tenant_id')
+    .select('role, tenant_id, supabase_uid')
     .eq('id', userId)
     .single()
   if (!target || target.tenant_id !== profile.tenant_id) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+  // Use supabase_uid for self-check so it works for both primary and secondary org rows
+  if (target.supabase_uid === user.id) {
+    return NextResponse.json({ error: 'Cannot remove yourself' }, { status: 403 })
   }
   if (target.role === 'account_owner') {
     return NextResponse.json({ error: 'Cannot remove account owner' }, { status: 403 })

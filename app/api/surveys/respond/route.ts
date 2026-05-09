@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   )
 
   const [{ data: profile }, { data: survey }] = await Promise.all([
-    db.from('users').select('tenant_id').eq('id', user.id).single(),
+    db.from('users').select('tenant_id').eq('supabase_uid', user.id).single(),
     db.from('surveys').select('type').eq('id', survey_id).single(),
   ])
 

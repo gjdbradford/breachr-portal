@@ -15,7 +15,7 @@ export async function GET() {
   const { data: profile } = await supabase
     .from('users')
     .select('tenant_id')
-    .eq('id', user.id)
+    .eq('supabase_uid', user.id)
     .single()
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

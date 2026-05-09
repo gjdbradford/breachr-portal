@@ -24,7 +24,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await supabase.from('users').select('tenant_id').eq('id', user.id).single()
+  const { data: profile } = await supabase.from('users').select('tenant_id').eq('supabase_uid', user.id).single()
   if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 403 })
 
   const adminClient = createAdmin(

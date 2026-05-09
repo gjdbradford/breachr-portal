@@ -19,7 +19,7 @@ export async function GET() {
     { data: dismissals },
     { data: eventRows },
   ] = await Promise.all([
-    db.from('users').select('tenant_id, created_at').eq('id', user.id).single(),
+    db.from('users').select('tenant_id, created_at').eq('supabase_uid', user.id).single(),
     db.from('surveys').select('*').eq('active', true).order('created_at'),
     db.from('survey_responses').select('survey_id, created_at').eq('user_id', user.id),
     db.from('survey_dismissals').select('survey_id').eq('user_id', user.id),

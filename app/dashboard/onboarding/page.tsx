@@ -52,7 +52,7 @@ export default function OnboardingPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
-    const { data: profile } = await supabase.from('users').select('tenant_id').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('users').select('tenant_id').eq('supabase_uid', user.id).single()
     if (!profile) { setError('Profile not found'); setLoading(false); return }
 
     const { error } = await supabase
@@ -73,7 +73,7 @@ export default function OnboardingPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
-    const { data: profile } = await supabase.from('users').select('tenant_id').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('users').select('tenant_id').eq('supabase_uid', user.id).single()
     if (!profile) { setError('Profile not found'); setLoading(false); return }
 
     const rows = targets
@@ -97,7 +97,7 @@ export default function OnboardingPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
-    const { data: profile } = await supabase.from('users').select('tenant_id').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('users').select('tenant_id').eq('supabase_uid', user.id).single()
     if (!profile) { setError('Profile not found'); setLoading(false); return }
 
     const { error } = await supabase
@@ -122,7 +122,7 @@ export default function OnboardingPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
-    const { data: profile } = await supabase.from('users').select('tenant_id').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('users').select('tenant_id').eq('supabase_uid', user.id).single()
     if (profile) {
       await supabase.from('tenants').update({ onboarding_complete: true }).eq('id', profile.tenant_id)
     }

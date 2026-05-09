@@ -10,7 +10,7 @@ export default async function SettingsPage() {
   const { data: profile } = await supabase
     .from('users')
     .select('tenant_id, email, role, phone')
-    .eq('id', user.id)
+    .eq('supabase_uid', user.id)
     .single()
   if (!profile) redirect('/login')
 

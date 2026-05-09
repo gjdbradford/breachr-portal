@@ -35,34 +35,34 @@ export async function GET(request: NextRequest) {
         process.env.SUPABASE_SERVICE_ROLE_KEY!,
       )
 
-      const { data: existingUser } = await admin
+      const { data: existingRows } = await admin
         .from('users')
-        .select('id')
-        .eq('id', user.id)
-        .single()
+        .select('id, tenant_id')
+        .eq('supabase_uid', user.id)
 
-      if (!existingUser) {
-        const invitedTenantId = user.user_metadata?.invited_tenant_id as string | undefined
-        const role = (user.user_metadata?.role as string | undefined) ?? 'admin'
+      const invitedTenantId = user.user_metadata?.invited_tenant_id as string | undefined
+      const role = (user.user_metadata?.role as string | undefined) ?? 'admin'
+      const alreadyInTenant = existingRows?.some(r => r.tenant_id === invitedTenantId)
 
-        if (invitedTenantId) {
-          await admin.from('users').insert({
-            id: user.id,
-            tenant_id: invitedTenantId,
-            email: user.email,
-            role,
-          })
+      if (invitedTenantId && !alreadyInTenant) {
+        const isFirstOrg = !existingRows || existingRows.length === 0
+        await admin.from('users').insert({
+          ...(isFirstOrg ? { id: user.id } : {}),
+          supabase_uid: user.id,
+          tenant_id: invitedTenantId,
+          email: user.email,
+          role,
+        })
 
-          await admin
-            .from('invitations')
-            .update({ accepted_at: new Date().toISOString(), supabase_user_id: user.id })
-            .eq('email', user.email!)
-            .eq('tenant_id', invitedTenantId)
-            .is('accepted_at', null)
+        await admin
+          .from('invitations')
+          .update({ accepted_at: new Date().toISOString(), supabase_user_id: user.id })
+          .eq('email', user.email!)
+          .eq('tenant_id', invitedTenantId)
+          .is('accepted_at', null)
 
-          // Send invited user to the accept page to set password and name
-          return NextResponse.redirect(`${origin}/invite/accept`)
-        }
+        // Send invited user to the accept page to set password and name
+        return NextResponse.redirect(`${origin}/invite/accept`)
       }
 
       return NextResponse.redirect(`${origin}${next}`)

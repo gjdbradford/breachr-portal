@@ -205,7 +205,7 @@ export default function AuditChain({
             {filteredCount} of {totalCount} events
           </span>
         )}
-        <ExportButton dataType="audit_trail" canExport={canExport} />
+        <ExportButton dataType="audit_trail" canExport={canExport} recordCount={hasFilters ? filteredCount : totalCount} />
       </div>
 
       {/* Timeline */}

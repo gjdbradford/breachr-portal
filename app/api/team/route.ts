@@ -12,7 +12,7 @@ export async function GET() {
   const { data: profile } = await admin
     .from('users')
     .select('tenant_id, role')
-    .eq('id', user.id)
+    .eq('supabase_uid', user.id)
     .single()
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

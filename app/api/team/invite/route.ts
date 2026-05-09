@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   const { data: profile } = await admin
     .from('users')
     .select('tenant_id, role')
-    .eq('id', user.id)
+    .eq('supabase_uid', user.id)
     .single()
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (profile.role !== 'account_owner') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -46,32 +46,30 @@ export async function POST(req: NextRequest) {
     .single()
   if (pendingInvite) return NextResponse.json({ error: 'An invitation has already been sent to this email.' }, { status: 409 })
 
-  // Check: email is already registered with a DIFFERENT organisation
-  const { data: otherTenantUser } = await admin
-    .from('users')
-    .select('id, tenant_id')
-    .eq('email', email)
-    .neq('tenant_id', profile.tenant_id)
-    .limit(1)
-    .single()
-  if (otherTenantUser) {
-    return NextResponse.json(
-      { error: 'This email is already registered with another Breachr organisation. They would need to use a different email address to join your team.' },
-      { status: 409 }
-    )
-  }
-
   const origin = new URL(req.url).origin
-  const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { invited_tenant_id: profile.tenant_id, role: 'admin' },
-    redirectTo: `${origin}/invite/confirm`,
-  })
-  if (inviteError) {
-    console.error('[team/invite]', inviteError)
-    const status = inviteError.status ?? 503
-    let message = inviteError.message ?? 'Failed to send invitation'
-    if (status === 429) message = 'Email rate limit reached — please wait a few minutes and try again'
-    return NextResponse.json({ error: message }, { status: status >= 400 ? status : 503 })
+
+  // Check whether this email already has a confirmed Supabase auth account.
+  // inviteUserByEmail fails for confirmed users, so we skip it and just record
+  // the invitation — the recipient will be prompted in-app on next login.
+  const { data: existingAuthRow } = await admin
+    .from('users')
+    .select('supabase_uid')
+    .eq('email', email)
+    .limit(1)
+    .maybeSingle()
+
+  if (!existingAuthRow) {
+    const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+      data: { invited_tenant_id: profile.tenant_id, role: 'admin' },
+      redirectTo: `${origin}/invite/confirm`,
+    })
+    if (inviteError) {
+      console.error('[team/invite]', inviteError)
+      const status = inviteError.status ?? 503
+      let message = inviteError.message ?? 'Failed to send invitation'
+      if (status === 429) message = 'Email rate limit reached — please wait a few minutes and try again'
+      return NextResponse.json({ error: message }, { status: status >= 400 ? status : 503 })
+    }
   }
 
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()

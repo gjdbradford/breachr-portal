@@ -4,6 +4,7 @@ import DashboardNav from '@/components/DashboardNav'
 import TopHeader from '@/components/TopHeader'
 import HelpPanel from '@/components/HelpPanel'
 import SurveyBanner from '@/components/SurveyBanner'
+import PendingInviteBanner from '@/components/PendingInviteBanner'
 import { HelpPanelProvider } from '@/lib/help-panel-context'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -14,7 +15,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { data: profile } = await supabase
     .from('users')
     .select('tenant_id, is_superuser, first_name, last_name, role')
-    .eq('id', user.id)
+    .eq('supabase_uid', user.id)
     .single()
 
   if (!profile) redirect('/onboarding')
@@ -77,6 +78,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </main>
         <HelpPanel />
         <SurveyBanner />
+        <PendingInviteBanner />
       </div>
     </HelpPanelProvider>
   )

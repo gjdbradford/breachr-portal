@@ -332,7 +332,7 @@ export default function FindingsTable({
             </button>
           </>
         )}
-        <ExportButton dataType="findings" canExport={canExport} />
+        <ExportButton dataType="findings" canExport={canExport} recordCount={filteredCount} />
       </div>
 
       {/* Table */}

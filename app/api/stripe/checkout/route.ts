@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await supabase.from('users').select('tenant_id').eq('id', user.id).single()
+  const { data: profile } = await supabase.from('users').select('tenant_id').eq('supabase_uid', user.id).single()
   if (!profile) return NextResponse.json({ error: 'No profile' }, { status: 400 })
 
   const { data: tenant } = await supabase

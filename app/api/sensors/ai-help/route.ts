@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       supabase
         .from('users')
         .select('tenant_id')
-        .eq('id', user.id)
+        .eq('supabase_uid', user.id)
         .single(),
     ])
 

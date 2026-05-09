@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   if (!attack_surface_id) return NextResponse.json({ error: 'Missing attack_surface_id' }, { status: 400 })
 
   // Load tenant with live usage counts
-  const { data: profile } = await supabase.from('users').select('tenant_id').eq('id', user.id).single()
+  const { data: profile } = await supabase.from('users').select('tenant_id').eq('supabase_uid', user.id).single()
   if (!profile) return NextResponse.json({ error: 'No profile' }, { status: 403 })
 
   const { data: tenant } = await supabase

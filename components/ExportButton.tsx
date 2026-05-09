@@ -15,12 +15,16 @@ const EXPORTS_URL = '/dashboard/reports?tab=exports'
 const POLL_INTERVAL_MS = 2000
 const POLL_MAX         = 5
 
+const LARGE_EXPORT_THRESHOLD = 1000
+
 export default function ExportButton({
   dataType,
   canExport,
+  recordCount,
 }: {
   dataType: 'findings' | 'inventory' | 'audit_trail'
   canExport: boolean
+  recordCount?: number
 }) {
   const [open,    setOpen]    = useState(false)
   const [loading, setLoading] = useState(false)
@@ -28,6 +32,7 @@ export default function ExportButton({
   const searchParams          = useSearchParams()
   const ref                   = useRef<HTMLDivElement>(null)
   const pollRef               = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isLargeExport         = typeof recordCount === 'number' && recordCount >= LARGE_EXPORT_THRESHOLD
 
   useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current) }, [])
 
@@ -128,16 +133,35 @@ export default function ExportButton({
                 {fmt === 'csv' ? 'CSV' : 'Excel (.xlsx)'}
               </button>
             ))}
+            {isLargeExport && (
+              <div style={{
+                margin: '4px 6px 2px', padding: '7px 8px',
+                background: 'rgba(66,165,245,0.07)',
+                border: '1px solid rgba(66,165,245,0.18)',
+                borderRadius: 4,
+              }}>
+                <p style={{ margin: 0, fontSize: 10, color: '#42a5f5', fontWeight: 600, lineHeight: 1.3 }}>
+                  {recordCount!.toLocaleString()}+ records
+                </p>
+                <p style={{ margin: '3px 0 0', fontSize: 10, color: '#64748b', lineHeight: 1.4 }}>
+                  Will run as a background job. Your file will appear in{' '}
+                  <Link href={EXPORTS_URL} style={{ color: '#42a5f5', textDecoration: 'none' }} onClick={() => setOpen(false)}>
+                    Reports → Exports
+                  </Link>{' '}
+                  and we'll notify you when it's ready.
+                </p>
+              </div>
+            )}
           </div>
         </>
       )}
 
-      {toast && <ExportToast state={toast} onDismiss={dismissToast} />}
+      {toast && <ExportToast state={toast} onDismiss={dismissToast} isLargeExport={isLargeExport} />}
     </div>
   )
 }
 
-function ExportToast({ state, onDismiss }: { state: ToastState; onDismiss: () => void }) {
+function ExportToast({ state, onDismiss, isLargeExport }: { state: ToastState; onDismiss: () => void; isLargeExport: boolean }) {
   useEffect(() => {
     if (state.phase === 'ready' || state.phase === 'error') {
       const t = setTimeout(onDismiss, 8000)
@@ -171,8 +195,18 @@ function ExportToast({ state, onDismiss }: { state: ToastState; onDismiss: () =>
       <div style={{ flex: 1 }}>
         {state.phase === 'processing' && (
           <>
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>Generating export…</p>
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b' }}>This usually takes a few seconds.</p>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>
+              {isLargeExport ? 'Export queued…' : 'Generating export…'}
+            </p>
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
+              {isLargeExport
+                ? <>Running as a background job. Your file will appear in{' '}
+                    <Link href={EXPORTS_URL} style={{ color: '#42a5f5', textDecoration: 'none' }} onClick={onDismiss}>
+                      Reports → Exports
+                    </Link>{' '}
+                    and we'll let you know when it's ready.</>
+                : 'This usually takes a few seconds.'}
+            </p>
           </>
         )}
 
