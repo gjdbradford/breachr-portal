@@ -115,7 +115,7 @@ function CountryPicker({
                 type="button"
                 onClick={() => { onChange(c.code); setOpen(false); setSearch('') }}
                 style={{
-                  width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                  width: '100%', textAlign: 'left', border: 'none',
                   padding: '8px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
                   fontSize: 13,
                   color: c.code === value ? '#42a5f5' : '#e2e8f0',
