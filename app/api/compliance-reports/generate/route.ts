@@ -22,11 +22,11 @@ export async function POST(req: NextRequest) {
 
 async function handlePost(req: NextRequest) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { data: { user: authedUser } } = await supabase.auth.getUser()
+  if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile } = await supabase
-    .from('users').select('tenant_id').eq('id', user.id).single()
+    .from('users').select('tenant_id').eq('id', authedUser.id).single()
   if (!profile) return NextResponse.json({ error: 'No profile' }, { status: 403 })
 
   const body = await req.json().catch(() => ({}))
@@ -173,10 +173,9 @@ async function handlePost(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  const { data: { user } } = await supabase.auth.getUser()
   await logAuditEvent({
     tenantId,
-    userId:  user?.id ?? null,
+    userId:  authedUser.id,
     action:  'report.generated',
     detail:  { reportId: report.id, framework, periodDays, scanCount: scanIds.length },
   }).catch(() => {})
