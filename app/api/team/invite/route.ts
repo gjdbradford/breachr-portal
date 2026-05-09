@@ -26,14 +26,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Valid email required' }, { status: 400 })
   }
 
-  const { data: existing } = await admin
+  // Check: already a member of THIS tenant
+  const { data: existingMember } = await admin
     .from('users')
     .select('id')
     .eq('tenant_id', profile.tenant_id)
     .eq('email', email)
     .single()
-  if (existing) return NextResponse.json({ error: 'Already a member' }, { status: 409 })
+  if (existingMember) return NextResponse.json({ error: 'This person is already a member of your organisation.' }, { status: 409 })
 
+  // Check: pending invite for THIS tenant
   const { data: pendingInvite } = await admin
     .from('invitations')
     .select('id')
@@ -42,7 +44,22 @@ export async function POST(req: NextRequest) {
     .is('accepted_at', null)
     .gt('expires_at', new Date().toISOString())
     .single()
-  if (pendingInvite) return NextResponse.json({ error: 'Invitation already sent' }, { status: 409 })
+  if (pendingInvite) return NextResponse.json({ error: 'An invitation has already been sent to this email.' }, { status: 409 })
+
+  // Check: email is already registered with a DIFFERENT organisation
+  const { data: otherTenantUser } = await admin
+    .from('users')
+    .select('id, tenant_id')
+    .eq('email', email)
+    .neq('tenant_id', profile.tenant_id)
+    .limit(1)
+    .single()
+  if (otherTenantUser) {
+    return NextResponse.json(
+      { error: 'This email is already registered with another Breachr organisation. They would need to use a different email address to join your team.' },
+      { status: 409 }
+    )
+  }
 
   const origin = new URL(req.url).origin
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
@@ -54,7 +71,6 @@ export async function POST(req: NextRequest) {
     const status = inviteError.status ?? 503
     let message = inviteError.message ?? 'Failed to send invitation'
     if (status === 429) message = 'Email rate limit reached — please wait a few minutes and try again'
-    else if (message.includes('already been registered') || status === 422) message = 'A user with this email already exists'
     return NextResponse.json({ error: message }, { status: status >= 400 ? status : 503 })
   }
 
