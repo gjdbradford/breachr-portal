@@ -79,9 +79,11 @@ export async function GET(req: NextRequest) {
       }).eq('id', job.id)
 
       const { data: authUser } = await admin.auth.admin.getUserById(job.requested_by)
-      if (authUser?.user?.email) {
+      const toEmail = authUser?.user?.email
+      console.log(`[process-exports] job ${job.id} ready — emailing ${toEmail ?? 'no email found'}, RESEND_KEY set: ${!!process.env.RESEND_API_KEY}`)
+      if (toEmail) {
         await sendExportReadyEmail({
-          to:          authUser.user.email,
+          to:          toEmail,
           dataType:    job.data_type,
           format:      job.format,
           rowCount:    rows.length,
