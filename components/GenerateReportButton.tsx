@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-type Framework = 'DORA' | 'NIS2' | 'PCI-DSS'
-const VALID_FRAMEWORKS: Framework[] = ['DORA', 'NIS2', 'PCI-DSS']
+type Framework = 'DORA' | 'NIS2' | 'PCI-DSS' | 'HIPAA' | 'ISO27001' | 'SOC2'
+const VALID_FRAMEWORKS: Framework[] = ['DORA', 'NIS2', 'PCI-DSS', 'HIPAA', 'ISO27001', 'SOC2']
 
 const PERIOD_OPTIONS = [
   { label: 'Last 30 days',  value: 30 },
@@ -13,9 +13,12 @@ const PERIOD_OPTIONS = [
 ]
 
 const FRAMEWORK_COLOURS: Record<Framework, string> = {
-  'DORA':    '#1976d2',
-  'NIS2':    '#7b1fa2',
-  'PCI-DSS': '#c62828',
+  'DORA':     '#1976d2',
+  'NIS2':     '#7b1fa2',
+  'PCI-DSS':  '#c62828',
+  'HIPAA':    '#d97706',
+  'ISO27001': '#475569',
+  'SOC2':     '#0891b2',
 }
 
 export default function GenerateReportButton({

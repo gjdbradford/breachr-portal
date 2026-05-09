@@ -6,7 +6,7 @@ import Link from 'next/link'
 const faqs = [
   {
     q: 'What frameworks do the reports cover?',
-    a: 'Reports are generated for DORA (Digital Operational Resilience Act), NIS2 (Network and Information Security Directive 2), and PCI-DSS v4.0. Each report maps your scan findings directly to the relevant articles and requirements.',
+    a: 'Reports are generated for DORA, NIS2, PCI-DSS v4.0, HIPAA, ISO 27001, and SOC 2. Each report maps your scan findings directly to the relevant articles and requirements. Enable the frameworks applicable to your organisation in Settings → Compliance.',
   },
   {
     q: 'Do I need to run a scan before generating a report?',
@@ -64,7 +64,7 @@ export default function ReportsEmptyState({ enabledFrameworks }: Props) {
           Compliance reports, ready to share
         </h2>
         <p style={{ fontSize: 14, color: '#64748b', maxWidth: 480, margin: '0 auto 24px', lineHeight: 1.7 }}>
-          Generate cryptographically signed reports mapped to DORA, NIS2, and PCI-DSS. Each report is built from your scan history and links directly to the findings and evidence auditors need.
+          Generate cryptographically signed reports mapped to DORA, NIS2, PCI-DSS, HIPAA, ISO 27001, and SOC 2. Each report is built from your scan history and links directly to the findings and evidence auditors need.
         </p>
         <Link href="/dashboard/scans" className="btn-p" style={{ fontSize: 13, padding: '10px 24px' }}>
           Run a Scan First →
@@ -118,6 +118,30 @@ export default function ReportsEmptyState({ enabledFrameworks }: Props) {
               color: '#22c55e',
               desc: 'Required for any organisation that stores, processes, or transmits cardholder data. Breachr covers the technical requirements: vulnerability scanning (Req 11.3), penetration testing (Req 11.4), and system component inventory (Req 2.4). Reports include the evidence needed for your QSA assessment.',
               articles: ['Req 2.4: System inventory', 'Req 6.3: Vulnerability management', 'Req 11.3: Vulnerability scanning', 'Req 11.4: Penetration testing'],
+            },
+            {
+              id: 'HIPAA',
+              name: 'HIPAA — Health Insurance Portability & Accountability Act',
+              region: 'US · Health data',
+              color: '#d97706',
+              desc: 'Applies to covered entities and business associates handling protected health information (PHI). Breachr maps findings to the HIPAA Security Rule technical safeguards — access controls, audit controls, integrity, and transmission security.',
+              articles: ['§164.312(a): Access Control', '§164.312(b): Audit Controls', '§164.312(c): Integrity', '§164.312(e): Transmission Security'],
+            },
+            {
+              id: 'ISO27001',
+              name: 'ISO 27001 — Information Security Management',
+              region: 'Global · All sectors',
+              color: '#94a3b8',
+              desc: 'The internationally recognised standard for information security management systems (ISMS). Breachr maps scan findings to Annex A controls covering access management, cryptography, vulnerability management, and secure development.',
+              articles: ['A.5.15: Access Control', 'A.8.8: Vulnerability Management', 'A.8.24: Cryptography', 'A.8.25: Secure Development'],
+            },
+            {
+              id: 'SOC2',
+              name: 'SOC 2 — Service Organisation Control 2',
+              region: 'US · SaaS / Cloud',
+              color: '#0891b2',
+              desc: 'Trust services criteria used by SaaS and cloud providers to demonstrate security, availability, and confidentiality controls to customers. Breachr maps findings to the Common Criteria (CC) covering logical access, change management, and risk mitigation.',
+              articles: ['CC6.1: Logical Access', 'CC6.6: Security Boundaries', 'CC7.1: Vulnerability Detection', 'CC8.1: Change Management'],
             },
           ].map(({ id, name, region, color, desc, articles }) => {
             const enabled = enabledFrameworks.length === 0 || enabledFrameworks.includes(id)

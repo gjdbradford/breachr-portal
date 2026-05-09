@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as adminClient } from '@supabase/supabase-js'
 import { createHash } from 'crypto'
-import { getControls, type Framework } from '@/lib/frameworks'
+import { getControls, SUPPORTED_FRAMEWORKS, type Framework } from '@/lib/frameworks'
 import { logAuditEvent } from '@/lib/audit-log'
 
-const VALID_FRAMEWORKS: Framework[] = ['DORA', 'NIS2', 'PCI-DSS']
+const VALID_FRAMEWORKS: Framework[] = SUPPORTED_FRAMEWORKS
 const VALID_PERIODS = [30, 90, 365]
 
 export async function POST(req: NextRequest) {
