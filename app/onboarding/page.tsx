@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -121,8 +121,27 @@ export default function OnboardingPage() {
   const [inviteEmail, setInviteEmail]   = useState('')
   const [inviteSent, setInviteSent]     = useState(false)
 
-  const selectedCountry = COUNTRIES.find(c => c.code === country)
-  const dialCode        = selectedCountry?.dial ?? ''
+  const selectedCountry  = COUNTRIES.find(c => c.code === country)
+  const dialCode         = selectedCountry?.dial ?? ''
+  const [countryOpen, setCountryOpen]     = useState(false)
+  const [countrySearch, setCountrySearch] = useState('')
+  const countryRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (countryRef.current && !countryRef.current.contains(e.target as Node)) {
+        setCountryOpen(false)
+        setCountrySearch('')
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const filteredCountries = COUNTRIES.filter(c =>
+    c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+    c.dial.includes(countrySearch)
+  )
 
   useEffect(() => {
     const supabase = createClient()
@@ -274,22 +293,69 @@ export default function OnboardingPage() {
             </p>
 
             <form onSubmit={handleStep1}>
-              <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 16, position: 'relative' }} ref={countryRef}>
                 <label className="form-label">Country *</label>
-                <select
-                  className="form-input"
-                  value={country}
-                  onChange={e => setCountry(e.target.value)}
-                  required
-                  style={{ fontSize: 15 }}
+                <button
+                  type="button"
+                  onClick={() => { setCountryOpen(o => !o); setCountrySearch('') }}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 14px', borderRadius: 8, cursor: 'pointer', textAlign: 'left',
+                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+                    color: selectedCountry ? '#e2e8f0' : '#475569', fontSize: 14,
+                  }}
                 >
-                  <option value="">Select your country</option>
-                  {COUNTRIES.map(c => (
-                    <option key={c.code} value={c.code}>
-                      {c.flag}  {c.name}
-                    </option>
-                  ))}
-                </select>
+                  <span>{selectedCountry ? `${selectedCountry.flag}  ${selectedCountry.name}` : 'Select your country'}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ opacity: 0.5, flexShrink: 0, transform: countryOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                    <path d="M6 9l6 6 6-6"/>
+                  </svg>
+                </button>
+
+                {countryOpen && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, marginTop: 4,
+                    background: '#0d1428', border: '1px solid rgba(25,118,210,0.3)', borderRadius: 8,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)', overflow: 'hidden',
+                  }}>
+                    <div style={{ padding: '8px 10px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <input
+                        autoFocus
+                        type="text"
+                        placeholder="Search country or dial code…"
+                        value={countrySearch}
+                        onChange={e => setCountrySearch(e.target.value)}
+                        style={{
+                          width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: 6, padding: '7px 10px', color: '#e2e8f0', fontSize: 13, outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+                      {filteredCountries.length === 0 && (
+                        <div style={{ padding: '12px 14px', color: '#475569', fontSize: 13 }}>No results</div>
+                      )}
+                      {filteredCountries.map(c => (
+                        <button
+                          key={c.code}
+                          type="button"
+                          onClick={() => { setCountry(c.code); setCountryOpen(false); setCountrySearch('') }}
+                          style={{
+                            width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '9px 14px', background: c.code === country ? 'rgba(25,118,210,0.15)' : 'transparent',
+                            border: 'none', cursor: 'pointer', color: '#e2e8f0', fontSize: 14, textAlign: 'left',
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = c.code === country ? 'rgba(25,118,210,0.15)' : 'transparent')}
+                        >
+                          <span style={{ fontSize: 18, lineHeight: 1 }}>{c.flag}</span>
+                          <span style={{ flex: 1 }}>{c.name}</span>
+                          <span style={{ color: '#475569', fontSize: 12, fontFamily: 'monospace' }}>{c.dial}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div style={{ marginBottom: 24 }}>
