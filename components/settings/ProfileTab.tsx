@@ -154,23 +154,13 @@ export default function ProfileTab({
   const [saving, setSaving]           = useState(false)
   const [saveMsg, setSaveMsg]         = useState('')
 
-  const [phone, setPhone] = useState(() => {
-    const raw  = user.phone ?? ''
-    const dial = COUNTRIES.find(c => c.code === (tenant.country ?? ''))?.dial ?? ''
-    if (!dial) return raw
-    // Strip all leading dial-code prefixes (handles double-save artefacts)
-    const re = new RegExp(`^(${dial.replace('+', '\\+')}\\s*)+`)
-    return raw.replace(re, '').trim()
-  })
+  const [phone, setPhone] = useState(user.phone ?? '')
   const [savingPhone, setSavingPhone] = useState(false)
   const [phoneMsg, setPhoneMsg]       = useState('')
 
   const [resetting, setResetting]     = useState(false)
   const [resetMsg, setResetMsg]       = useState('')
   const [passwordUpdated, setPasswordUpdated] = useState(false)
-
-  const selectedCountry = COUNTRIES.find(c => c.code === countryCode)
-  const dialCode        = selectedCountry?.dial ?? ''
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -207,10 +197,9 @@ export default function ProfileTab({
     setSavingPhone(true)
     setPhoneMsg('')
     const supabase = createClient()
-    const fullPhone = phone ? `${dialCode} ${phone}`.trim() : null
     const { error } = await supabase
       .from('users')
-      .update({ phone: fullPhone })
+      .update({ phone: phone.trim() || null })
       .eq('id', currentUserId)
     setSavingPhone(false)
     if (error) {
@@ -305,32 +294,15 @@ export default function ProfileTab({
         {/* Mobile */}
         <form onSubmit={handleSavePhone} style={{ marginBottom: 20 }}>
           <label className="form-label">Mobile</label>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '9px 12px', background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6,
-              fontSize: 13, color: '#64748b', whiteSpace: 'nowrap', flexShrink: 0,
-            }}>
-              {selectedCountry ? (
-                <><span style={{ fontSize: 16 }}>{selectedCountry.flag}</span><span>{dialCode}</span></>
-              ) : (
-                <span>—</span>
-              )}
-            </div>
-            <input
-              className="form-input"
-              style={{ flex: 1 }}
-              type="tel"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              placeholder="Enter mobile number"
-            />
-          </div>
-          {!selectedCountry && (
-            <p style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>Select a country above to set the dial code.</p>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
+          <input
+            className="form-input"
+            type="tel"
+            value={phone}
+            onChange={e => setPhone(e.target.value)}
+            placeholder="e.g. 0769004082"
+            style={{ marginBottom: 12 }}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button type="submit" className="btn-s" style={{ fontSize: 13, padding: '7px 18px' }} disabled={savingPhone}>
               {savingPhone ? 'Saving…' : 'Save mobile'}
             </button>
