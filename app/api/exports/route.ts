@@ -64,6 +64,12 @@ export async function POST(req: NextRequest) {
     detail:   { exportId: data.id, data_type, format },
   }).catch(() => {})
 
+  // Trigger processing immediately — don't wait for the 5-min cron
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? `https://${req.headers.get('host')}`
+  fetch(`${baseUrl}/api/crons/process-exports`, {
+    headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+  }).catch(() => {})
+
   return NextResponse.json({ id: data.id })
 }
 
