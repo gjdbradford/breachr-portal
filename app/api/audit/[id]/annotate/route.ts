@@ -91,14 +91,12 @@ export async function PATCH(
     )
   }
 
-  const { error } = await admin
-    .from('audit_logs')
-    .update({
-      chain_annotation:    explanation,
-      chain_annotation_by: profile.id,
-      chain_annotation_at: new Date().toISOString(),
-    })
-    .eq('id', idNum)
+  const { error } = await admin.rpc('write_chain_annotation', {
+    p_id:            idNum,
+    p_annotation:    explanation,
+    p_annotation_by: profile.id,
+    p_annotation_at: new Date().toISOString(),
+  })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
