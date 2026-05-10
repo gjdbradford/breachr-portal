@@ -41,6 +41,11 @@ export default function LoginPage() {
       setError(error.message)
       setLoading(false)
     } else {
+      fetch('/api/events/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'user.logged_in' }),
+      }).catch(() => {})
       window.location.href = '/dashboard'
     }
   }
