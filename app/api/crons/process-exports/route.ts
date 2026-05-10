@@ -3,6 +3,7 @@ import { createClient as adminClient } from '@supabase/supabase-js'
 import * as XLSX from 'xlsx'
 import { sendExportReadyEmail } from '@/lib/email'
 import { logAuditEvent } from '@/lib/audit-log'
+import { formatFriendly } from '@/lib/format-date'
 
 export const maxDuration = 300
 
@@ -55,7 +56,9 @@ export async function GET(req: NextRequest) {
     await admin.from('data_exports').update({ status: 'processing' }).eq('id', job.id)
 
     try {
-      const rows = await fetchRows(admin, job.data_type, job.tenant_id, job.filters ?? {})
+      const { data: tenantRow } = await admin.from('tenants').select('timezone').eq('id', job.tenant_id).single()
+      const timezone = tenantRow?.timezone ?? 'UTC'
+      const rows = await fetchRows(admin, job.data_type, job.tenant_id, job.filters ?? {}, timezone)
       const ext  = job.format === 'xlsx' ? 'xlsx' : 'csv'
       const buf  = job.format === 'xlsx' ? generateXlsx(rows) : generateCsv(rows)
       const path = `${job.tenant_id}/${job.id}.${ext}`
@@ -91,6 +94,8 @@ export async function GET(req: NextRequest) {
           expiresAt:   expiresAt.toISOString(),
           requestedAt: job.created_at,
           portalUrl:   process.env.NEXT_PUBLIC_APP_URL ?? 'https://breachr-portal.vercel.app',
+        }).catch(err => {
+          console.error(`[process-exports] email notification failed for job ${job.id}:`, err)
         })
       }
 
@@ -120,10 +125,11 @@ async function fetchRows(
   dataType: string,
   tenantId: string,
   filters: Record<string, string>,
+  timezone = 'UTC',
 ): Promise<Record<string, unknown>[]> {
   if (dataType === 'findings')    return fetchFindings(admin, tenantId, filters)
   if (dataType === 'inventory')   return fetchInventory(admin, tenantId)
-  if (dataType === 'audit_trail') return fetchAuditTrail(admin, tenantId, filters)
+  if (dataType === 'audit_trail') return fetchAuditTrail(admin, tenantId, filters, timezone)
   return []
 }
 
@@ -176,8 +182,24 @@ async function fetchInventory(admin: any, tenantId: string) {
   }))
 }
 
+function flattenDetail(raw: unknown): string {
+  if (!raw) return ''
+  try {
+    const { _ts, ...rest } = (typeof raw === 'string' ? JSON.parse(raw) : raw) as Record<string, unknown>
+    void _ts
+    return Object.entries(rest)
+      .map(([k, v]) => {
+        const s = String(v ?? '')
+        return /^[0-9a-f-]{36}$/i.test(s) ? `${k}: ${s.slice(0, 8)}…` : `${k}: ${s}`
+      })
+      .join(' · ')
+  } catch {
+    return typeof raw === 'string' ? raw : ''
+  }
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchAuditTrail(admin: any, tenantId: string, filters: Record<string, string>) {
+async function fetchAuditTrail(admin: any, tenantId: string, filters: Record<string, string>, timezone = 'UTC') {
   let q = admin.from('audit_logs')
     .select('action, detail, created_at')
     .eq('tenant_id', tenantId)
@@ -194,9 +216,9 @@ async function fetchAuditTrail(admin: any, tenantId: string, filters: Record<str
 
   const { data } = await q
   return (data ?? []).map((e: Record<string, unknown>) => ({
-    Action:            (e.action as string) ?? '',
-    Detail:            (e.detail as string | null) ?? '',
-    'Timestamp (UTC)': (e.created_at as string) ?? '',
+    Action:    (e.action as string) ?? '',
+    Detail:    flattenDetail(e.detail),
+    Timestamp: e.created_at ? formatFriendly(e.created_at as string, timezone) : '',
   }))
 }
 
