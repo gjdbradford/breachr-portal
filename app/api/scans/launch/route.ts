@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logAuditEvent } from '@/lib/audit-log'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 
 export async function POST(req: Request) {
   const supabase = await createClient()
@@ -13,6 +14,9 @@ export async function POST(req: Request) {
   // Load tenant with live usage counts
   const { data: profile } = await supabase.from('users').select('tenant_id').eq('supabase_uid', user.id).single()
   if (!profile) return NextResponse.json({ error: 'No profile' }, { status: 403 })
+
+  const resolved = await resolvePermissions(user.id)
+  if (!resolved['scans.create']) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { data: tenant } = await supabase
     .from('tenants')

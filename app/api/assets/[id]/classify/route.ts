@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as adminClient } from '@supabase/supabase-js'
 import { createHash } from 'crypto'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 
 const VALID_CRITICALITY  = new Set(['mission_critical', 'business_essential', 'business_support', 'non_essential'])
 const VALID_ASSET_TYPES  = new Set(['server', 'workstation', 'network_device', 'iot', 'cloud_service', 'mobile', 'other'])
@@ -26,7 +27,8 @@ export async function PATCH(
 
   const { data: profile } = await admin.from('users').select('tenant_id, role').eq('supabase_uid', user.id).single()
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!['account_owner', 'admin'].includes(profile.role)) {
+  const resolved = await resolvePermissions(user.id)
+  if (!resolved['assets.update']) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

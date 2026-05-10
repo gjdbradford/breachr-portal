@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as adminClient } from '@supabase/supabase-js'
 import { logAuditEvent } from '@/lib/audit-log'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -18,7 +19,8 @@ export async function POST(req: NextRequest) {
     .eq('supabase_uid', user.id)
     .single()
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (profile.role !== 'account_owner') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const resolved = await resolvePermissions(user.id)
+  if (!resolved['team.invite']) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await req.json().catch(() => ({}))
   const { email } = body
@@ -88,5 +90,5 @@ export async function POST(req: NextRequest) {
     detail:   { invited_email: email, role: 'admin', expires_at: expiresAt },
   }).catch(() => {})
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, emailSent: !existingAuthRow })
 }

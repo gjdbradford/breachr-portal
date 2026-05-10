@@ -5,6 +5,7 @@ import { createHash } from 'crypto'
 import { Document, Page, Text, View, StyleSheet, renderToBuffer } from '@react-pdf/renderer'
 import { createElement as h } from 'react'
 import { logAuditEvent } from '@/lib/audit-log'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 
 export const runtime = 'nodejs'
 
@@ -238,6 +239,15 @@ export async function GET(
     .eq('tenant_id', profile.tenant_id)
     .single()
   if (!report) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  const resolved = await resolvePermissions(user.id)
+  if (!resolved['reports.export']) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  const typeKey = `reports.read.${report.report_type}` as import('@/lib/permissions').Permission
+  if (!resolved[typeKey]) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   // Tenant name for cover page
   const { data: tenant } = await supabase

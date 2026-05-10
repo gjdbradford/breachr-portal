@@ -24,6 +24,14 @@ vi.mock('@supabase/supabase-js', () => ({
   })),
 }))
 
+const mockResolvePermissions = vi.fn().mockResolvedValue({
+  'exports.create': true,
+  'exports.read':   true,
+})
+vi.mock('@/lib/resolve-permissions', () => ({
+  resolvePermissions: (...args: unknown[]) => mockResolvePermissions(...args),
+}))
+
 function setupAuthenticatedUser(role = 'admin') {
   mockGetUser.mockResolvedValue({ data: { user: { id: 'user-123' } } })
   const mockSingle = vi.fn().mockResolvedValue({
@@ -36,6 +44,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   process.env.NEXT_PUBLIC_SUPABASE_URL  = 'https://test.supabase.co'
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key'
+  mockResolvePermissions.mockResolvedValue({ 'exports.create': true, 'exports.read': true })
 })
 
 // ─── POST tests ────────────────────────────────────────────────────────────
@@ -59,6 +68,7 @@ describe('POST /api/exports', () => {
 
   it('returns 403 for non-admin/owner role', async () => {
     setupAuthenticatedUser('member')
+    mockResolvePermissions.mockResolvedValue({ 'exports.create': false, 'exports.read': false })
     const res = await callPost({ data_type: 'findings', format: 'csv', filters: {} })
     expect(res.status).toBe(403)
   })

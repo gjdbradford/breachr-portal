@@ -26,6 +26,10 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({ from: mockAdminFrom })),
 }))
 
+vi.mock('@/lib/resolve-permissions', () => ({
+  resolvePermissions: vi.fn().mockResolvedValue({ 'findings.update': true }),
+}))
+
 beforeEach(() => {
   vi.clearAllMocks()
   process.env.NEXT_PUBLIC_SUPABASE_URL  = 'https://test.supabase.co'

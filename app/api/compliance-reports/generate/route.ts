@@ -4,6 +4,7 @@ import { createClient as adminClient } from '@supabase/supabase-js'
 import { createHash } from 'crypto'
 import { getControls, SUPPORTED_FRAMEWORKS, type Framework } from '@/lib/frameworks'
 import { logAuditEvent } from '@/lib/audit-log'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 
 const VALID_FRAMEWORKS: Framework[] = SUPPORTED_FRAMEWORKS
 const VALID_PERIODS = [30, 90, 365]
@@ -28,6 +29,11 @@ async function handlePost(req: NextRequest) {
   const { data: profile } = await supabase
     .from('users').select('tenant_id').eq('id', authedUser.id).single()
   if (!profile) return NextResponse.json({ error: 'No profile' }, { status: 403 })
+
+  const resolved = await resolvePermissions(authedUser.id)
+  if (!resolved['reports.generate']) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const body = await req.json().catch(() => ({}))
   const framework: Framework = body.framework

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as adminClient } from '@supabase/supabase-js'
 import { logAuditEvent } from '@/lib/audit-log'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 
 export async function POST(
   _req: NextRequest,
@@ -16,6 +17,11 @@ export async function POST(
   const { data: profile } = await supabase
     .from('users').select('tenant_id').eq('supabase_uid', user.id).single()
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const resolved = await resolvePermissions(user.id)
+  if (!resolved['findings.update']) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const admin = adminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
