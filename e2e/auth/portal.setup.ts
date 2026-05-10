@@ -20,7 +20,21 @@ setup('portal auth setup', async ({ page }) => {
   await page.getByLabel(/password/i).fill(password)
   await page.getByRole('button', { name: /sign in/i }).click()
 
-  await page.waitForURL(/\/(dashboard|onboarding)/, { timeout: 15_000 })
+  // Wait for either a successful redirect or an error message
+  await Promise.race([
+    page.waitForURL(/\/(dashboard|onboarding)/, { timeout: 20_000 }),
+    page.getByText(/invalid|incorrect|not found|error/i).waitFor({ timeout: 20_000 }),
+  ]).catch(async () => {
+    const url = page.url()
+    const bodyText = await page.locator('body').innerText().catch(() => '(could not read body)')
+    throw new Error(`Login timed out. URL: ${url}\nPage content: ${bodyText.slice(0, 500)}`)
+  })
+
+  // If we're still on login page, the credentials were rejected
+  if (page.url().includes('/login')) {
+    const errorText = await page.locator('p:has-text("Invalid"), p:has-text("incorrect"), [style*="ef4444"]').innerText().catch(() => 'unknown error')
+    throw new Error(`Login failed: ${errorText}`)
+  }
 
   await page.context().storageState({ path: STATE_FILE })
   console.log('✓ Portal auth state saved')
