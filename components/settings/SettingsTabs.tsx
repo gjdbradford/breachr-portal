@@ -4,13 +4,15 @@ import { useState } from 'react'
 import ProfileTab, { type TenantProfile, type UserProfile } from './ProfileTab'
 import ComplianceTab from './ComplianceTab'
 import TeamTab from './TeamTab'
+import PermissionsTab from './PermissionsTab'
 
-type Tab = 'profile' | 'compliance' | 'team'
+type Tab = 'profile' | 'compliance' | 'team' | 'permissions'
 
 const TAB_LABELS: Record<Tab, string> = {
-  profile:    'Profile',
-  compliance: 'Compliance',
-  team:       'Team',
+  profile:     'Profile',
+  compliance:  'Compliance',
+  team:        'Team',
+  permissions: 'Permissions',
 }
 
 export default function SettingsTabs({
@@ -24,12 +26,17 @@ export default function SettingsTabs({
   tenantId: string
   currentUserId: string
 }) {
+  const isOwner = user.role === 'account_owner'
+  const tabs: Tab[] = isOwner
+    ? ['profile', 'compliance', 'team', 'permissions']
+    : ['profile', 'compliance', 'team']
+
   const [activeTab, setActiveTab] = useState<Tab>('profile')
 
   return (
     <div style={{ padding: 24 }}>
       <div style={{ display: 'flex', gap: 0, marginBottom: 24, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        {(['profile', 'compliance', 'team'] as Tab[]).map(tab => (
+        {tabs.map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -46,9 +53,10 @@ export default function SettingsTabs({
         ))}
       </div>
 
-      {activeTab === 'profile'    && <ProfileTab tenant={tenant} user={user} tenantId={tenantId} currentUserId={currentUserId} />}
-      {activeTab === 'compliance' && <ComplianceTab frameworks={tenant.compliance_frameworks} tenantId={tenantId} />}
-      {activeTab === 'team'       && <TeamTab currentUserId={currentUserId} currentUserRole={user.role} />}
+      {activeTab === 'profile'     && <ProfileTab tenant={tenant} user={user} tenantId={tenantId} currentUserId={currentUserId} />}
+      {activeTab === 'compliance'  && <ComplianceTab frameworks={tenant.compliance_frameworks} tenantId={tenantId} />}
+      {activeTab === 'team'        && <TeamTab currentUserId={currentUserId} currentUserRole={user.role} timezone={tenant.timezone ?? 'UTC'} />}
+      {activeTab === 'permissions' && isOwner && <PermissionsTab />}
     </div>
   )
 }
