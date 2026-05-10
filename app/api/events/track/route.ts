@@ -51,7 +51,6 @@ export async function POST(req: NextRequest) {
       if (userId) {
         await db.from('users').update({
           last_login_at: new Date().toISOString(),
-          login_count: db.rpc('increment', { table: 'users', column: 'login_count', row_id: userId }) as any,
         }).eq('supabase_uid', userId)
       }
     }
