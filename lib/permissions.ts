@@ -1,84 +1,165 @@
-/**
- * Permission system for Breachr portal.
- *
- * account_owner: full access to everything, always.
- * admin: full access by default; account_owner can restrict specific capabilities.
- * member: read-only by default (future role).
- *
- * No user can delete data — audit log integrity is preserved.
- * Restrictions are stored as { feature: { action: false } } in users.permissions.
- * Absence of a key means the default applies (true for admin, false for member).
- */
+export const ALL_PERMISSIONS = [
+  'scans.create',
+  'scans.read',
+  'scans.update',
+  'scans.archive',
+  'findings.read',
+  'findings.update',
+  'findings.archive',
+  'assets.create',
+  'assets.read',
+  'assets.update',
+  'assets.archive',
+  'reports.read.scan',
+  'reports.read.organizational',
+  'reports.read.executive',
+  'reports.read.board',
+  'reports.generate',
+  'reports.export',
+  'exports.create',
+  'exports.read',
+  'remediation.read',
+  'remediation.update',
+  'audit.read',
+  'team.read',
+  'team.invite',
+] as const
 
-export type Permission =
-  | 'scans.create'
-  | 'scans.run'
-  | 'findings.update_status'
-  | 'assets.create'
-  | 'assets.update'
-  | 'reports.generate'
-  | 'reports.export'
-  | 'remediation.update'
-  | 'exports.request'
+export type Permission = typeof ALL_PERMISSIONS[number]
 
-const ADMIN_DEFAULTS: Record<Permission, boolean> = {
-  'scans.create':          true,
-  'scans.run':             true,
-  'findings.update_status': true,
-  'assets.create':         true,
-  'assets.update':         true,
-  'reports.generate':      true,
-  'reports.export':        true,
-  'remediation.update':    true,
-  'exports.request':       true,
+export const ADMIN_DEFAULTS: Record<Permission, boolean> = {
+  'scans.create':               true,
+  'scans.read':                 true,
+  'scans.update':               true,
+  'scans.archive':              true,
+  'findings.read':              true,
+  'findings.update':            true,
+  'findings.archive':           true,
+  'assets.create':              true,
+  'assets.read':                true,
+  'assets.update':              true,
+  'assets.archive':             true,
+  'reports.read.scan':          true,
+  'reports.read.organizational': true,
+  'reports.read.executive':     false,
+  'reports.read.board':         false,
+  'reports.generate':           true,
+  'reports.export':             true,
+  'exports.create':             true,
+  'exports.read':               true,
+  'remediation.read':           true,
+  'remediation.update':         true,
+  'audit.read':                 true,
+  'team.read':                  true,
+  'team.invite':                false,
 }
 
-const MEMBER_DEFAULTS: Record<Permission, boolean> = {
-  'scans.create':          false,
-  'scans.run':             false,
-  'findings.update_status': false,
-  'assets.create':         false,
-  'assets.update':         false,
-  'reports.generate':      false,
-  'reports.export':        false,
-  'remediation.update':    false,
-  'exports.request':       false,
+export const MEMBER_DEFAULTS: Record<Permission, boolean> = {
+  'scans.create':               false,
+  'scans.read':                 false,
+  'scans.update':               false,
+  'scans.archive':              false,
+  'findings.read':              false,
+  'findings.update':            false,
+  'findings.archive':           false,
+  'assets.create':              false,
+  'assets.read':                false,
+  'assets.update':              false,
+  'assets.archive':             false,
+  'reports.read.scan':          false,
+  'reports.read.organizational': false,
+  'reports.read.executive':     false,
+  'reports.read.board':         false,
+  'reports.generate':           false,
+  'reports.export':             false,
+  'exports.create':             false,
+  'exports.read':               false,
+  'remediation.read':           false,
+  'remediation.update':         false,
+  'audit.read':                 false,
+  'team.read':                  false,
+  'team.invite':                false,
 }
 
+export const PERMISSION_GROUPS: Array<{
+  label: string
+  permissions: Array<{ key: Permission; label: string }>
+}> = [
+  {
+    label: 'Scans',
+    permissions: [
+      { key: 'scans.create',  label: 'Create new scans' },
+      { key: 'scans.read',    label: 'View scans' },
+      { key: 'scans.update',  label: 'Update scan settings' },
+      { key: 'scans.archive', label: 'Archive scans' },
+    ],
+  },
+  {
+    label: 'Findings',
+    permissions: [
+      { key: 'findings.read',    label: 'View findings' },
+      { key: 'findings.update',  label: 'Update finding status' },
+      { key: 'findings.archive', label: 'Archive findings' },
+    ],
+  },
+  {
+    label: 'Assets / Inventory',
+    permissions: [
+      { key: 'assets.create',  label: 'Add new assets' },
+      { key: 'assets.read',    label: 'View assets' },
+      { key: 'assets.update',  label: 'Update assets' },
+      { key: 'assets.archive', label: 'Archive assets' },
+    ],
+  },
+  {
+    label: 'Reports',
+    permissions: [
+      { key: 'reports.read.scan',           label: 'View scan reports' },
+      { key: 'reports.read.organizational', label: 'View organisational reports' },
+      { key: 'reports.read.executive',      label: 'View executive reports' },
+      { key: 'reports.read.board',          label: 'View board reports' },
+      { key: 'reports.generate',            label: 'Generate reports' },
+      { key: 'reports.export',              label: 'Export reports as PDF' },
+    ],
+  },
+  {
+    label: 'Exports',
+    permissions: [
+      { key: 'exports.create', label: 'Request data exports' },
+      { key: 'exports.read',   label: 'View exports' },
+    ],
+  },
+  {
+    label: 'Remediation',
+    permissions: [
+      { key: 'remediation.read',   label: 'View remediation plans' },
+      { key: 'remediation.update', label: 'Update remediation status' },
+    ],
+  },
+  {
+    label: 'Audit Log',
+    permissions: [
+      { key: 'audit.read', label: 'View audit log' },
+    ],
+  },
+  {
+    label: 'Team',
+    permissions: [
+      { key: 'team.read',   label: 'View team members' },
+      { key: 'team.invite', label: 'Invite new members' },
+    ],
+  },
+]
+
+// Accepts a pre-resolved flat permissions record (from resolvePermissions).
+// account_owner callers pass a record of all-true; others pass the output of resolvePermissions().
 export function can(
-  role: string,
-  permissions: Record<string, boolean> | null | undefined,
+  resolved: Record<Permission, boolean>,
   action: Permission,
 ): boolean {
-  if (role === 'account_owner') return true
-
-  const defaults = role === 'admin' ? ADMIN_DEFAULTS : MEMBER_DEFAULTS
-  const base = defaults[action] ?? false
-
-  if (!permissions || typeof permissions !== 'object') return base
-
-  // Flatten nested { feature: { action: bool } } to 'feature.action'
-  const flat: Record<string, boolean> = {}
-  for (const [feature, actions] of Object.entries(permissions)) {
-    if (actions && typeof actions === 'object') {
-      for (const [act, val] of Object.entries(actions as Record<string, boolean>)) {
-        flat[`${feature}.${act}`] = val
-      }
-    } else if (typeof actions === 'boolean') {
-      flat[feature] = actions
-    }
-  }
-
-  return action in flat ? flat[action] : base
+  return resolved[action] ?? false
 }
 
-export function defaultPermissionsForRole(role: string): Record<string, Record<string, boolean>> {
-  const src = role === 'admin' ? ADMIN_DEFAULTS : MEMBER_DEFAULTS
-  const out: Record<string, Record<string, boolean>> = {}
-  for (const [key, val] of Object.entries(src)) {
-    const [feature, action] = key.split('.')
-    if (!out[feature]) out[feature] = {}
-    out[feature][action] = val
-  }
-  return out
+export function defaultPermissionsForRole(role: string): Record<Permission, boolean> {
+  return role === 'admin' ? { ...ADMIN_DEFAULTS } : { ...MEMBER_DEFAULTS }
 }
