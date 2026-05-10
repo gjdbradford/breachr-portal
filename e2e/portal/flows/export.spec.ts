@@ -12,7 +12,7 @@ type Format = 'csv' | 'xlsx'
 const FORMATS: Format[] = ['csv', 'xlsx']
 
 const EMAIL_TO         = 'graham@breachr.ai'
-const EMAIL_TIMEOUT_MS = 60_000
+const EMAIL_TIMEOUT_MS = 30_000
 const POLL_INTERVAL_MS = 3_000
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
