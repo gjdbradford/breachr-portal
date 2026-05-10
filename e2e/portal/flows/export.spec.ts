@@ -53,6 +53,14 @@ for (const { dataType, label, route } of CASES) {
           name: format === 'csv' ? 'CSV' : 'Excel (.xlsx)',
         }).click()
 
+        // Kick the cron immediately so we don't wait for the daily schedule
+        const cronSecret = process.env.CRON_SECRET
+        if (cronSecret) {
+          await request.get('/api/crons/process-exports', {
+            headers: { Authorization: `Bearer ${cronSecret}` },
+          })
+        }
+
         await expect(
           page.getByText(/export ready/i),
           'Export ready toast did not appear within 30s — job may have failed',

@@ -34,6 +34,7 @@ jobs:
           PORTAL_URL:           ${{ secrets.STAGING_PORTAL_URL }}
           PORTAL_TEST_EMAIL:    ${{ secrets.PORTAL_TEST_EMAIL }}
           PORTAL_TEST_PASSWORD: ${{ secrets.PORTAL_TEST_PASSWORD }}
+          CRON_SECRET:          ${{ secrets.CRON_SECRET }}
 
       - name: Upload report on failure
         if: failure()
