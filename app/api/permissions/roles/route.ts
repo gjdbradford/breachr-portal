@@ -51,10 +51,11 @@ export async function GET(req: NextRequest) {
       permission: p,
       enabled:    codeDefaults[p] ?? false,
     }))
-    await db
-      .from('role_permissions')
-      .upsert(seeds, { onConflict: 'tenant_id,role,permission' })
-      .catch(() => {})
+    try {
+      await db
+        .from('role_permissions')
+        .upsert(seeds, { onConflict: 'tenant_id,role,permission' })
+    } catch { /* seeding failure is non-fatal */ }
   }
 
   const rowIndex: Record<string, boolean> = {}

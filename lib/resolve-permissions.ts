@@ -41,10 +41,11 @@ export async function resolvePermissions(supabaseUserId: string): Promise<Record
       permission: p,
       enabled:   codeDefaults[p] ?? false,
     }))
-    await admin
-      .from('role_permissions')
-      .upsert(seeds, { onConflict: 'tenant_id,role,permission' })
-      .catch(() => {})
+    try {
+      await admin
+        .from('role_permissions')
+        .upsert(seeds, { onConflict: 'tenant_id,role,permission' })
+    } catch { /* seeding failure is non-fatal */ }
   }
 
   const roleMap: Record<string, boolean> = {}
