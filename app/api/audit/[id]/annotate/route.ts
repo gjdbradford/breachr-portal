@@ -57,7 +57,7 @@ export async function PATCH(
     }
   }
 
-  // Verify this is a genuine chain break
+  // AUDIT_SIGNING_KEY must be a hex-encoded string (same format used by insert_audit_log_signed)
   const signingKey = process.env.AUDIT_SIGNING_KEY
   if (!signingKey) return NextResponse.json({ error: 'Signing key not configured' }, { status: 500 })
 

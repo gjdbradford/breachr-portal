@@ -63,18 +63,11 @@ function setupEntry(overrides: Record<string, unknown> = {}) {
   }
   const prevEntry = { signature: 'prev-sig' }
 
-  // Chain: maybeSingle for the entry, then maybeSingle for prevEntry, then update
-  let callCount = 0
-
   // The terminal node returned by the final .eq() in the entry fetch chain.
-  // It needs: maybeSingle (for the two-eq entry fetch) and lt (for the prev-entry fetch).
+  // maybeSingle() returns the entry; prev-entry path goes through .lt().order().limit().maybeSingle().
   function makeTerminal(): Record<string, unknown> {
     const terminal: Record<string, unknown> = {
-      maybeSingle: vi.fn(async () => {
-        callCount++
-        if (callCount === 1) return { data: baseEntry }
-        return { data: prevEntry }
-      }),
+      maybeSingle: vi.fn().mockResolvedValue({ data: baseEntry }),
       lt: vi.fn(() => ({
         order: vi.fn(() => ({
           limit: vi.fn(() => ({
