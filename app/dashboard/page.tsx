@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { DORA_ARTICLES } from '@/lib/types'
 import LaunchScanButton from '@/components/LaunchScanButton'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -30,6 +31,7 @@ export default async function DashboardPage() {
     { data: recentFindings },
     { data: recentAudit },
     { data: surfaces },
+    resolved,
   ] = await Promise.all([
     supabase.from('scans').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'running'),
     supabase.from('scans').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'complete'),
@@ -43,6 +45,7 @@ export default async function DashboardPage() {
     supabase.from('findings').select('id,title,severity,ai_model,ai_confidence,finding_hash,owasp_category,cvss_score,status,created_at,scan_id').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(5),
     supabase.from('audit_logs').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(6),
     supabase.from('attack_surfaces').select('id,name,target_url').eq('tenant_id', tenantId).eq('active', true),
+    resolvePermissions(user.id),
   ])
 
   const hasScans = (completedScans ?? 0) > 0
@@ -98,7 +101,7 @@ export default async function DashboardPage() {
             Audit trail live · EU only
           </div>
           {surfaces && surfaces.length > 0 && (
-            <LaunchScanButton surfaces={surfaces} tenantId={tenantId} planId={tenant?.plan ?? 'free'} scansThisMonth={tenant?.scans_this_month ?? 0} tokensThisMonth={tenant?.tokens_used_this_month ?? 0} />
+            <LaunchScanButton surfaces={surfaces} tenantId={tenantId} planId={tenant?.plan ?? 'free'} scansThisMonth={tenant?.scans_this_month ?? 0} tokensThisMonth={tenant?.tokens_used_this_month ?? 0} canCreate={resolved['scans.create']} />
           )}
         </div>
       </div>
@@ -262,7 +265,7 @@ export default async function DashboardPage() {
             <div style={{ padding: '40px 24px', textAlign: 'center', color: '#475569' }}>
               <p style={{ marginBottom: 12, fontSize: 13 }}>No findings yet — run a scan to start.</p>
               {surfaces && surfaces.length > 0
-                ? <LaunchScanButton surfaces={surfaces} tenantId={tenantId} />
+                ? <LaunchScanButton surfaces={surfaces} tenantId={tenantId} canCreate={resolved['scans.create']} />
                 : <Link href="/onboarding" className="btn-p" style={{ fontSize: 12, padding: '7px 16px' }}>Add Target →</Link>}
             </div>
           )}
