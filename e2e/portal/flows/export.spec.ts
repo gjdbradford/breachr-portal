@@ -98,7 +98,7 @@ for (const { dataType, label, route } of CASES) {
         await page.goto('/dashboard/reports?tab=exports')
         await page.waitForLoadState('networkidle')
         const row = page.locator('tr').filter({ hasText: label }).filter({ hasText: format.toUpperCase() })
-        await expect(row.getByText('Ready'), 'Export should show Ready in Reports tab').toBeVisible({ timeout: 10_000 })
+        await expect(row.getByText('Ready').first(), 'Export should show Ready in Reports tab').toBeVisible({ timeout: 10_000 })
 
         // ── 4. Audit event logged ───────────────────────────────────────────
         await page.goto('/dashboard/audit')
