@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useRegisterHelpContent } from '@/lib/help-panel-context'
 import SensorRegistrationModal from './SensorRegistrationModal'
 import SensorEmptyState from './SensorEmptyState'
-import { DEPLOYMENT_TYPES, VALID_DEPLOYMENT_TYPE_IDS } from '@/lib/sensor-types'
+import { VALID_DEPLOYMENT_TYPE_IDS } from '@/lib/sensor-types'
 import type { DeploymentType } from '@/lib/sensor-types'
 import { formatFriendly } from '@/lib/format-date'
 
