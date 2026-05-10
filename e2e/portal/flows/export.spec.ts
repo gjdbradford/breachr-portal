@@ -104,11 +104,11 @@ for (const { dataType, label, route } of CASES) {
         await page.goto('/dashboard/audit')
         await page.waitForLoadState('networkidle')
         await expect(
-          page.getByText('Export Requested'),
+          page.getByText('Export Requested').first(),
           'Audit trail should contain Export Requested event',
         ).toBeVisible()
         await expect(
-          page.getByText(`${label} (${format.toUpperCase()})`),
+          page.getByText(`${label} (${format.toUpperCase()})`).first(),
           `Audit detail should show "${label} (${format.toUpperCase()})"`,
         ).toBeVisible()
 
