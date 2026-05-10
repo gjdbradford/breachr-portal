@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 import DashboardNav from '@/components/DashboardNav'
 import TopHeader from '@/components/TopHeader'
 import HelpPanel from '@/components/HelpPanel'
@@ -34,6 +35,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     { count: activeScansCount },
     { count: scansThisMonthCount },
     { count: unackedAssetsCount },
+    resolved,
   ] = await Promise.all([
     supabase
       .from('scans')
@@ -50,6 +52,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', profile.tenant_id)
       .is('acknowledged_at', null),
+    resolvePermissions(user.id),
   ])
 
   return (
@@ -72,6 +75,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           tenantId={profile.tenant_id}
           initialActiveScans={activeScansCount ?? 0}
           initialUnackedAssets={unackedAssetsCount ?? 0}
+          showAudit={resolved['audit.read']}
         />
         <main className="portal-main">
           {children}

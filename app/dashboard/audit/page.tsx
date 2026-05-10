@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 import AuditChain from '@/components/AuditChain'
 import type { AuditLog } from '@/lib/types'
 
@@ -33,6 +34,9 @@ export default async function AuditPage({
 
   const { data: profile } = await supabase.from('users').select('tenant_id, role').eq('supabase_uid', user.id).single()
   if (!profile) redirect('/login')
+
+  const resolved = await resolvePermissions(user.id)
+  if (!resolved['audit.read']) redirect('/dashboard')
 
   const tenantId = profile.tenant_id
   const canExport = ['account_owner', 'admin'].includes((profile as any).role ?? '')
