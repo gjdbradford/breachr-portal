@@ -138,7 +138,7 @@ export async function sendExportReadyEmail({
     day: 'numeric', month: 'long', year: 'numeric',
   })
 
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from: process.env.RESEND_FROM ?? 'Breachr <onboarding@breachr.ai>',
     to,
     subject: `Your ${dataTypeLabel} export is ready`,
@@ -207,10 +207,10 @@ export async function sendExportReadyEmail({
   </table>
 </body>
 </html>`,
-  }).then(result => {
-    console.log('[email] sendExportReadyEmail sent to', to, '— id:', (result as any)?.data?.id, 'error:', (result as any)?.error)
-  }).catch(err => {
-    console.error('[email] sendExportReadyEmail failed:', err)
-    throw err
   })
+  if (result.error) {
+    console.error('[email] sendExportReadyEmail rejected by Resend:', JSON.stringify(result.error))
+    throw new Error(`Resend error: ${result.error.message}`)
+  }
+  console.log('[email] sendExportReadyEmail accepted — id:', result.data?.id, 'to:', to)
 }
