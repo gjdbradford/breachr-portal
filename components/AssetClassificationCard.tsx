@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import DepartmentCombobox from './DepartmentCombobox'
+import { formatFriendly } from '@/lib/format-date'
 
 export type Classification = {
   criticality:           string | null
@@ -42,10 +43,12 @@ export default function AssetClassificationCard({
   assetId,
   initial,
   userRole,
+  timezone = 'UTC',
 }: {
   assetId: string
   initial: Classification
   userRole: string
+  timezone?: string
 }) {
   const canEdit = ['account_owner', 'admin'].includes(userRole)
   const [data, setData]     = useState<Classification>(initial)
@@ -191,7 +194,7 @@ export default function AssetClassificationCard({
           <div>
             <div style={lbl}>Last classified</div>
             <div style={{ fontSize: 13, color: '#e2e8f0' }}>
-              {data.classified_at ? new Date(data.classified_at).toLocaleDateString('en-GB') : '—'}
+              {data.classified_at ? formatFriendly(data.classified_at, timezone) : '—'}
             </div>
           </div>
           {data.classification_notes && (

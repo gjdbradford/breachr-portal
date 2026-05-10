@@ -9,6 +9,8 @@ import ExportsTab from '@/components/ExportsTab'
 const PAGE_SIZE = 25
 
 const DATE_PRESETS: Record<string, number> = {
+  '7d':  7,
+  '14d': 14,
   '30d': 30,
   '90d': 90,
   '1y':  365,
@@ -39,7 +41,11 @@ export default async function ReportsPage({
 
   // Resolve date cutoff
   let dateCutoff: string | null = null
-  if (datePreset && DATE_PRESETS[datePreset]) {
+  if (datePreset === 'today') {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    dateCutoff = d.toISOString()
+  } else if (datePreset && DATE_PRESETS[datePreset]) {
     const d = new Date()
     d.setDate(d.getDate() - DATE_PRESETS[datePreset])
     dateCutoff = d.toISOString()
@@ -86,7 +92,7 @@ export default async function ReportsPage({
 
     supabase
       .from('tenants')
-      .select('compliance_frameworks')
+      .select('compliance_frameworks, timezone')
       .eq('id', tenantId)
       .single(),
   ])
@@ -97,6 +103,7 @@ export default async function ReportsPage({
   }
 
   const enabledFrameworks = tenantRow?.compliance_frameworks ?? []
+  const timezone = tenantRow?.timezone ?? 'UTC'
 
   if ((totalCount ?? 0) === 0) {
     return (
@@ -124,7 +131,7 @@ export default async function ReportsPage({
         </div>
         {activeTab === 'exports' ? (
           <Suspense fallback={<div style={{ color: '#64748b', padding: 24 }}>Loading…</div>}>
-            <ExportsTab />
+            <ExportsTab timezone={timezone} />
           </Suspense>
         ) : (
           <ReportsEmptyState enabledFrameworks={enabledFrameworks} />
@@ -158,7 +165,7 @@ export default async function ReportsPage({
       </div>
       {activeTab === 'exports' ? (
         <Suspense fallback={<div style={{ color: '#64748b', padding: 24 }}>Loading…</div>}>
-          <ExportsTab />
+          <ExportsTab timezone={timezone} />
         </Suspense>
       ) : (
         <Suspense fallback={<div style={{ color: '#64748b', padding: 24 }}>Loading…</div>}>
@@ -171,6 +178,7 @@ export default async function ReportsPage({
             frameworkCounts={frameworkCounts}
             enabledFrameworks={enabledFrameworks}
             orgCount={orgCount ?? 0}
+            timezone={timezone}
           />
         </Suspense>
       )}

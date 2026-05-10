@@ -9,6 +9,14 @@ export async function GET() {
 
   const admin = adminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
+  // Get the tenants this user already belongs to so we don't show re-invites
+  const { data: memberships } = await admin
+    .from('users')
+    .select('tenant_id')
+    .eq('supabase_uid', user.id)
+
+  const alreadyMemberOf = new Set((memberships ?? []).map((m: { tenant_id: string }) => m.tenant_id))
+
   const { data: invitations } = await admin
     .from('invitations')
     .select('id, tenant_id, role, expires_at, tenants(name)')
@@ -17,5 +25,7 @@ export async function GET() {
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
 
-  return NextResponse.json({ invitations: invitations ?? [] })
+  const filtered = (invitations ?? []).filter((inv: { tenant_id: string }) => !alreadyMemberOf.has(inv.tenant_id))
+
+  return NextResponse.json({ invitations: filtered })
 }

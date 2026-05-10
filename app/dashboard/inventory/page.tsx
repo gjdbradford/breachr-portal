@@ -41,12 +41,19 @@ export default async function InventoryPage({
 
   const page = Math.max(1, parseInt(params.p ?? '1') || 1)
 
-  const { data: assets, count: totalCount } = await supabase
-    .from('assets')
-    .select('id, ip, mac, hostname, vendor, os_guess, last_seen, is_active, risk_score, acknowledged_at, criticality, owner_name', { count: 'exact' })
-    .eq('tenant_id', profile.tenant_id)
-    .order('risk_score', { ascending: false })
-    .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
+  const [
+    { data: assets, count: totalCount },
+    { data: tenantRow },
+  ] = await Promise.all([
+    supabase
+      .from('assets')
+      .select('id, ip, mac, hostname, vendor, os_guess, last_seen, is_active, risk_score, acknowledged_at, criticality, owner_name', { count: 'exact' })
+      .eq('tenant_id', profile.tenant_id)
+      .order('risk_score', { ascending: false })
+      .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1),
+    supabase.from('tenants').select('timezone').eq('id', profile.tenant_id).single(),
+  ])
+  const timezone = tenantRow?.timezone ?? 'UTC'
 
   const assetIds = (assets ?? []).map(a => a.id)
   const { data: portCounts } = assetIds.length > 0
@@ -110,6 +117,7 @@ export default async function InventoryPage({
               page={page}
               pageSize={PAGE_SIZE}
               totalCount={total}
+              timezone={timezone}
             />
           </div>
         </>

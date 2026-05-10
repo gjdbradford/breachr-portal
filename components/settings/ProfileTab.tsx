@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 import { COUNTRIES } from '@/lib/countries'
+import { TIMEZONES, TZ_REGIONS } from '@/lib/timezones'
 
 const INDUSTRIES: { value: string; label: string }[] = [
   { value: 'banking',    label: 'Banking'    },
@@ -19,6 +21,7 @@ export type TenantProfile = {
   industry: string
   company_size: string
   country: string | null
+  timezone: string
 }
 
 export type UserProfile = {
@@ -136,6 +139,147 @@ function CountryPicker({
   )
 }
 
+function TimezonePicker({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (tz: string) => void
+}) {
+  const [open, setOpen]       = useState(false)
+  const [search, setSearch]   = useState('')
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 })
+  const [mounted, setMounted] = useState(false)
+  const containerRef          = useRef<HTMLDivElement>(null)
+  const dropdownRef           = useRef<HTMLDivElement>(null)
+  const buttonRef             = useRef<HTMLButtonElement>(null)
+  const inputRef              = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { setMounted(true) }, [])
+
+  const q = search.toLowerCase().replace(/\s+/g, ' ').trim()
+  const selected = TIMEZONES.find(t => t.iana === value)
+  const filtered = TIMEZONES.filter(t =>
+    t.label.toLowerCase().includes(q) ||
+    t.iana.toLowerCase().includes(q) ||
+    (t.aliases && t.aliases.toLowerCase().includes(q))
+  )
+
+  function updatePos() {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      setDropPos({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+    }
+  }
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      const inContainer = containerRef.current?.contains(e.target as Node)
+      const inDropdown  = dropdownRef.current?.contains(e.target as Node)
+      if (!inContainer && !inDropdown) { setOpen(false); setSearch('') }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    updatePos()
+    setTimeout(() => inputRef.current?.focus(), 50)
+    window.addEventListener('scroll', updatePos, true)
+    window.addEventListener('resize', updatePos)
+    return () => {
+      window.removeEventListener('scroll', updatePos, true)
+      window.removeEventListener('resize', updatePos)
+    }
+  }, [open])
+
+  function handleOpen() {
+    updatePos()
+    setOpen(o => !o)
+  }
+
+  const groups = TZ_REGIONS.map(region => ({
+    region,
+    items: filtered.filter(t => t.region === region),
+  })).filter(g => g.items.length > 0)
+
+  const dropdown = (
+    <div
+      ref={dropdownRef}
+      style={{
+        position: 'fixed', top: dropPos.top, left: dropPos.left, width: dropPos.width, zIndex: 9999,
+        background: '#0f1729', border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', overflow: 'hidden',
+      }}
+    >
+      <div style={{ padding: '8px 10px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <input
+          ref={inputRef}
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search city, timezone, or GMT offset…"
+          style={{
+            width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 6, padding: '6px 10px', fontSize: 13, color: '#e2e8f0', outline: 'none',
+          }}
+        />
+      </div>
+      <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+        {groups.length === 0 ? (
+          <div style={{ padding: '12px 16px', fontSize: 13, color: '#64748b' }}>No results</div>
+        ) : groups.map(({ region, items }) => (
+          <div key={region}>
+            <div style={{ padding: '6px 14px 2px', fontSize: 10, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{region}</div>
+            {items.map(t => (
+              <button
+                key={t.iana}
+                type="button"
+                onClick={() => { onChange(t.iana); setOpen(false); setSearch('') }}
+                style={{
+                  width: '100%', textAlign: 'left', border: 'none',
+                  padding: '7px 14px', cursor: 'pointer', fontSize: 13,
+                  color: t.iana === value ? '#42a5f5' : '#e2e8f0',
+                  background: t.iana === value ? 'rgba(66,165,245,0.08)' : 'transparent',
+                }}
+                onMouseEnter={e => { if (t.iana !== value) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = t.iana === value ? 'rgba(66,165,245,0.08)' : 'transparent' }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  return (
+    <div ref={containerRef}>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={handleOpen}
+        className="form-input"
+        style={{
+          width: '100%', textAlign: 'left', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 8, background: 'rgba(255,255,255,0.04)',
+        }}
+      >
+        <span style={{ fontSize: 13, color: selected ? '#e2e8f0' : '#64748b' }}>
+          {selected ? selected.label : 'Select timezone'}
+        </span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, opacity: 0.5 }}>
+          <path d="M2 4l4 4 4-4" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && mounted && createPortal(dropdown, document.body)}
+    </div>
+  )
+}
+
 export default function ProfileTab({
   tenant,
   user,
@@ -151,6 +295,7 @@ export default function ProfileTab({
   const [industry, setIndustry]       = useState(tenant.industry ?? '')
   const [companySize, setCompanySize] = useState(tenant.company_size ?? '')
   const [countryCode, setCountryCode] = useState(tenant.country ?? '')
+  const [timezone, setTimezone]       = useState(tenant.timezone ?? 'UTC')
   const [saving, setSaving]           = useState(false)
   const [saveMsg, setSaveMsg]         = useState('')
 
@@ -180,7 +325,7 @@ export default function ProfileTab({
     const supabase = createClient()
     const { error, data } = await supabase
       .from('tenants')
-      .update({ name, industry, company_size: companySize, country: countryCode || null })
+      .update({ name, industry, company_size: companySize, country: countryCode || null, timezone })
       .eq('id', tenantId)
       .select('id')
     setSaving(false)
@@ -260,9 +405,14 @@ export default function ProfileTab({
               {SIZES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-          <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 16 }}>
             <label className="form-label">Country</label>
             <CountryPicker value={countryCode} onChange={setCountryCode} />
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <label className="form-label">Timezone</label>
+            <TimezonePicker value={timezone} onChange={setTimezone} />
+            <p style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>All timestamps in the portal will display in this timezone.</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button type="submit" className="btn-p" style={{ fontSize: 13, padding: '8px 20px' }} disabled={saving}>

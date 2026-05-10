@@ -10,6 +10,9 @@ export default async function SensorsPage() {
   const { data: profile } = await supabase.from('users').select('tenant_id').eq('supabase_uid', user.id).single()
   if (!profile) redirect('/login')
 
+  const { data: tenantRow } = await supabase.from('tenants').select('timezone').eq('id', profile.tenant_id).single()
+  const timezone = tenantRow?.timezone ?? 'UTC'
+
   const { data: sensors } = await supabase
     .from('sensors')
     .select('id, name, location, last_seen, status, deployment_type')
@@ -36,7 +39,7 @@ export default async function SensorsPage() {
           </p>
         </div>
       </div>
-      <SensorsClient sensors={sensors ?? []} assetCountMap={assetCountMap} />
+      <SensorsClient sensors={sensors ?? []} assetCountMap={assetCountMap} timezone={timezone} />
     </div>
   )
 }

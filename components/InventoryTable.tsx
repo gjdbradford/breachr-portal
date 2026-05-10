@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { formatFriendly } from '@/lib/format-date'
 import { CriticalityBadgeSmall, CriticalityPopover } from './CriticalityPopover'
 import ExportButton from './ExportButton'
 
@@ -28,6 +29,7 @@ export default function InventoryTable({
   page,
   pageSize,
   totalCount,
+  timezone = 'UTC',
 }: {
   assets: Asset[]
   portCountMap: Record<string, number>
@@ -36,6 +38,7 @@ export default function InventoryTable({
   page: number
   pageSize: number
   totalCount: number
+  timezone?: string
 }) {
   const [assets, setAssets] = useState(initial)
   const router       = useRouter()
@@ -118,7 +121,7 @@ export default function InventoryTable({
                   </span>
                 </td>
                 <td style={{ fontSize: 12, color: '#64748b' }}>
-                  {new Date(a.last_seen).toLocaleDateString('en-GB')}
+                  {formatFriendly(a.last_seen, timezone)}
                   {!a.is_active && (
                     <span style={{ marginLeft: 6, fontSize: 10, color: '#475569',
                       background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: 3 }}>
@@ -140,7 +143,11 @@ export default function InventoryTable({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <span style={{ fontSize: 12, color: '#475569' }}>
+            Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, totalCount)} of {totalCount} asset{totalCount !== 1 ? 's' : ''}
+          </span>
+          <div style={{ display: 'flex', gap: 4 }}>
           <button
             onClick={() => goToPage(page - 1)}
             disabled={page === 1}
@@ -183,6 +190,7 @@ export default function InventoryTable({
               color: page === totalPages ? '#334155' : '#94a3b8',
             }}
           >→</button>
+          </div>
         </div>
       )}
     </div>

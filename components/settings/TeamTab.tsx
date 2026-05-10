@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { formatFriendly } from '@/lib/format-date'
 
 interface Member {
   id: string
@@ -42,9 +43,11 @@ function RoleBadge({ role }: { role: string }) {
 export default function TeamTab({
   currentUserId,
   currentUserRole,
+  timezone = 'UTC',
 }: {
   currentUserId: string
   currentUserRole: string
+  timezone?: string
 }) {
   const isOwner = currentUserRole === 'account_owner'
   const [members, setMembers]               = useState<Member[]>([])
@@ -80,7 +83,12 @@ export default function TeamTab({
       body: JSON.stringify({ email: inviteEmail }),
     })
     if (res.ok) {
-      setSuccess(`Invitation sent to ${inviteEmail}`)
+      const data = await res.json().catch(() => ({}))
+      if (data.emailSent === false) {
+        setSuccess(`${inviteEmail} already has a Breachr account. They'll see the invitation on their dashboard next time they log in.`)
+      } else {
+        setSuccess(`Invitation email sent to ${inviteEmail}`)
+      }
       setInviteEmail('')
       setShowInviteForm(false)
       load()
@@ -209,8 +217,8 @@ export default function TeamTab({
                   </span>
                 </td>
                 <td style={cell}><RoleBadge role={m.role} /></td>
-                <td style={cell}>{new Date(m.created_at).toLocaleDateString('en-GB')}</td>
-                <td style={cell}>{m.last_login_at ? new Date(m.last_login_at).toLocaleDateString('en-GB') : '—'}</td>
+                <td style={cell}>{formatFriendly(m.created_at, timezone)}</td>
+                <td style={cell}>{m.last_login_at ? formatFriendly(m.last_login_at, timezone) : '—'}</td>
                 {isOwner && (
                   <td style={cell}>
                     {m.role !== 'account_owner' && (
@@ -271,8 +279,8 @@ export default function TeamTab({
                   <tr key={inv.id}>
                     <td style={cell}>{inv.email}</td>
                     <td style={cell}><RoleBadge role={inv.role} /></td>
-                    <td style={cell}>{new Date(inv.created_at).toLocaleDateString('en-GB')}</td>
-                    <td style={cell}>{new Date(inv.expires_at).toLocaleDateString('en-GB')}</td>
+                    <td style={cell}>{formatFriendly(inv.created_at, timezone)}</td>
+                    <td style={cell}>{formatFriendly(inv.expires_at, timezone)}</td>
                     {isOwner && (
                       <td style={cell}>
                         <button

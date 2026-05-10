@@ -1,6 +1,4 @@
 import { createClient as adminClient } from '@supabase/supabase-js'
-import { createHmac } from 'crypto'
-import { sha256Hex, GENESIS_HASH } from '@/lib/audit'
 
 export const VALID_AUDIT_ACTIONS = [
   // User lifecycle
@@ -25,10 +23,6 @@ export const VALID_AUDIT_ACTIONS = [
 ] as const
 
 export type AuditAction = typeof VALID_AUDIT_ACTIONS[number]
-
-function hmacSha256Hex(key: string, data: string): string {
-  return createHmac('sha256', Buffer.from(key, 'hex')).update(data, 'utf8').digest('hex')
-}
 
 export async function logAuditEvent({
   tenantId,
@@ -55,31 +49,13 @@ export async function logAuditEvent({
   const ts = new Date().toISOString()
   const detailStr = JSON.stringify({ ...detail, _ts: ts })
 
-  const { data: lastEntry } = await admin
-    .from('audit_logs')
-    .select('signature')
-    .eq('tenant_id', tenantId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  const prevHash = lastEntry?.signature
-    ? await sha256Hex(lastEntry.signature)
-    : GENESIS_HASH
-
-  const payload = JSON.stringify({ action, detail: detailStr, prev_hash: prevHash, tenant_id: tenantId })
-  const signature = hmacSha256Hex(signingKey, payload)
-
-  const { error } = await admin
-    .from('audit_logs')
-    .insert({
-      tenant_id: tenantId,
-      ...(userId !== null ? { user_id: userId } : {}),
-      action,
-      detail: detailStr,
-      signature,
-      prev_hash: prevHash,
-    })
+  const { error } = await admin.rpc('insert_audit_log_signed', {
+    p_tenant_id:   tenantId,
+    p_user_id:     userId,
+    p_action:      action,
+    p_detail:      detailStr,
+    p_signing_key: signingKey,
+  })
 
   if (error) console.error('[audit] insert failed:', error.message)
 }

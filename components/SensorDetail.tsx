@@ -371,6 +371,7 @@ export default function SensorDetail({
               <input
                 value={editName}
                 onChange={e => setEditName(e.target.value)}
+                autoFocus
                 style={{
                   fontSize: 18, fontWeight: 700, color: '#e2e8f0',
                   background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(99,102,241,0.5)',
@@ -407,18 +408,34 @@ export default function SensorDetail({
               </div>
             </div>
           ) : (
-            <>
-              <h1 className="font-display" style={{ fontSize: 20, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.05em', marginBottom: 4 }}>
-                {sensor.name}
-              </h1>
-              {sensor.location && (
-                <p style={{ fontSize: 13, color: '#64748b' }}>{sensor.location}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div>
+                <h1 className="font-display" style={{ fontSize: 20, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.05em', marginBottom: 4 }}>
+                  {sensor.name}
+                </h1>
+                {sensor.location && (
+                  <p style={{ fontSize: 13, color: '#64748b' }}>{sensor.location}</p>
+                )}
+              </div>
+              {canManage && (
+                <button
+                  onClick={() => setEditing(true)}
+                  title="Edit sensor"
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 28, height: 28, borderRadius: 6, cursor: 'pointer', flexShrink: 0,
+                    background: 'none', border: '1px solid rgba(255,255,255,0.08)', color: '#475569',
+                    fontSize: 13, lineHeight: 1,
+                  }}
+                >
+                  ✏️
+                </button>
               )}
-            </>
+            </div>
           )}
         </div>
 
-        {/* Status + actions */}
+        {/* Status + enable/disable */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{
             fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 4,
@@ -428,15 +445,6 @@ export default function SensorDetail({
           }}>
             {disabled ? 'Disabled' : active ? 'Active' : 'Offline'}
           </span>
-
-          {canManage && !editing && (
-            <button
-              onClick={() => setEditing(true)}
-              style={{ fontSize: 12, padding: '5px 14px', borderRadius: 5, cursor: 'pointer', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}
-            >
-              Edit
-            </button>
-          )}
 
           {canManage && (
             <button

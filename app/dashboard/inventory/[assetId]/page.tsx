@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import AcknowledgeOnMount from '@/components/AcknowledgeOnMount'
 import AssetClassificationCard from '@/components/AssetClassificationCard'
+import { formatFriendly } from '@/lib/format-date'
 
 const SEVERITY_COLORS: Record<string, string> = {
   critical: '#ef4444', high: '#f97316', medium: '#f59e0b', low: '#22c55e',
@@ -20,6 +21,9 @@ export default async function AssetDetailPage({
 
   const { data: profile } = await supabase.from('users').select('tenant_id, role').eq('supabase_uid', user.id).single()
   if (!profile) redirect('/login')
+
+  const { data: tenantRow } = await supabase.from('tenants').select('timezone').eq('id', profile.tenant_id).single()
+  const timezone = tenantRow?.timezone ?? 'UTC'
 
   const [
     { data: asset },
@@ -86,8 +90,8 @@ export default async function AssetDetailPage({
             ['Vendor',     asset.vendor    ?? '—'],
             ['OS',         asset.os_guess  ?? '—'],
             ['Status',     asset.is_active ? 'Active' : 'Offline'],
-            ['First seen', new Date(asset.first_seen).toLocaleDateString('en-GB')],
-            ['Last seen',  new Date(asset.last_seen).toLocaleDateString('en-GB')],
+            ['First seen', formatFriendly(asset.first_seen, timezone)],
+            ['Last seen',  formatFriendly(asset.last_seen, timezone)],
             ['Sensor',     sensor?.name ?? '—'],
           ] as [string, string][]).map(([label, value]) => (
             <div key={label}>
@@ -116,7 +120,7 @@ export default async function AssetDetailPage({
                   <td style={{ fontSize: 12, color: '#64748b' }}>{p.protocol}</td>
                   <td style={{ fontSize: 12, color: '#94a3b8' }}>{p.service ?? '—'}</td>
                   <td style={{ fontSize: 11, color: '#475569', fontFamily: 'monospace' }}>{p.banner ?? '—'}</td>
-                  <td style={{ fontSize: 12, color: '#64748b' }}>{new Date(p.last_seen).toLocaleDateString('en-GB')}</td>
+                  <td style={{ fontSize: 12, color: '#64748b' }}>{formatFriendly(p.last_seen, timezone)}</td>
                 </tr>
               ))}
             </tbody>
@@ -127,6 +131,7 @@ export default async function AssetDetailPage({
       <AssetClassificationCard
         assetId={asset.id}
         userRole={profile.role ?? 'member'}
+        timezone={timezone}
         initial={{
           criticality:          asset.criticality          ?? null,
           asset_type_label:     asset.asset_type_label     ?? null,

@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import AuditLogger from '@/components/AuditLogger'
 import ReportDownloadButton from '@/components/ReportDownloadButton'
+import { formatFriendly, formatFriendlyDate } from '@/lib/format-date'
 
 const SEV_ORDER = ['critical', 'high', 'medium', 'low', 'info']
 
@@ -37,6 +38,9 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
   const { data: profile } = await supabase.from('users').select('tenant_id').eq('supabase_uid', user.id).single()
   if (!profile) redirect('/login')
 
+  const { data: tenantRow } = await supabase.from('tenants').select('timezone').eq('id', profile.tenant_id).single()
+  const timezone = tenantRow?.timezone ?? 'UTC'
+
   const { data: report } = await supabase
     .from('compliance_reports')
     .select('*')
@@ -71,12 +75,8 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
           </h1>
           <p style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>
             {report.report_type === 'organizational'
-              ? `Organisational report · generated ${report.generated_at
-                  ? new Date(report.generated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-                  : '—'}`
-              : `Generated ${report.generated_at
-                  ? new Date(report.generated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-                  : '—'} · Scan ID: ${report.scan_id?.slice(0, 8) ?? '—'}`}
+              ? `Organisational report · generated ${report.generated_at ? formatFriendly(report.generated_at, timezone) : '—'}`
+              : `Generated ${report.generated_at ? formatFriendly(report.generated_at, timezone) : '—'} · Scan ID: ${report.scan_id?.slice(0, 8) ?? '—'}`}
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -136,13 +136,9 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
                 <div>
                   <p style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>Reporting Period</p>
                   <p style={{ fontSize: 12, color: '#e2e8f0' }}>
-                    {report.report_period_start
-                      ? new Date(report.report_period_start).toLocaleDateString('en-GB')
-                      : '—'}
+                    {report.report_period_start ? formatFriendlyDate(report.report_period_start, timezone) : '—'}
                     {' → '}
-                    {report.report_period_end
-                      ? new Date(report.report_period_end).toLocaleDateString('en-GB')
-                      : '—'}
+                    {report.report_period_end ? formatFriendlyDate(report.report_period_end, timezone) : '—'}
                   </p>
                 </div>
                 <div>

@@ -3,6 +3,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import LaunchScanButton from '@/components/LaunchScanButton'
+import { formatFriendly } from '@/lib/format-date'
 import UpgradeWallModal from '@/components/UpgradeWallModal'
 
 const TYPE_LABEL: Record<string, string> = {
@@ -36,11 +37,13 @@ export default function TargetList({
   tenantId,
   planId = 'free',
   targetsMax = 1,
+  timezone = 'UTC',
 }: {
   surfaces: Surface[]
   tenantId: string
   planId?: string
   targetsMax?: number | null
+  timezone?: string
 }) {
   const [items, setItems] = useState(surfaces)
   const [showAdd, setShowAdd] = useState(false)
@@ -107,7 +110,7 @@ export default function TargetList({
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {visible.map(s => (
-            <TargetCard key={s.id} surface={s} tenantId={tenantId} onToggled={onToggled} />
+            <TargetCard key={s.id} surface={s} tenantId={tenantId} onToggled={onToggled} timezone={timezone} />
           ))}
         </div>
       )}
@@ -129,10 +132,11 @@ export default function TargetList({
   )
 }
 
-function TargetCard({ surface: s, tenantId, onToggled }: {
+function TargetCard({ surface: s, tenantId, onToggled, timezone = 'UTC' }: {
   surface: Surface
   tenantId: string
   onToggled: (id: string, active: boolean) => void
+  timezone?: string
 }) {
   const [toggling, startToggle] = useTransition()
   const typeColor = TYPE_COLOR[s.target_type] ?? '#64748b'
@@ -185,7 +189,7 @@ function TargetCard({ surface: s, tenantId, onToggled }: {
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           {scan ? (
             <span style={{ fontSize: 11, color: scanStatusColor[scan.status] ?? '#64748b' }}>
-              Last scan: {scan.status}{scan.completed_at ? ` · ${new Date(scan.completed_at).toLocaleDateString('en-GB')}` : ''}
+              Last scan: {scan.status}{scan.completed_at ? ` · ${formatFriendly(scan.completed_at, timezone)}` : ''}
             </span>
           ) : (
             <span style={{ fontSize: 11, color: '#475569' }}>No scans yet</span>
@@ -200,7 +204,7 @@ function TargetCard({ surface: s, tenantId, onToggled }: {
             <span style={{ fontSize: 11, color: '#22c55e' }}>✓ No open findings</span>
           )}
           <span style={{ fontSize: 11, color: '#334155' }}>
-            Added {new Date(s.created_at).toLocaleDateString('en-GB')}
+            Added {formatFriendly(s.created_at, timezone)}
           </span>
         </div>
       </div>

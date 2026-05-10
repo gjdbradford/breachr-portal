@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import FindingStatusButton from '@/components/FindingStatusButton'
+import { formatFriendly } from '@/lib/format-date'
 
 const SEV_COLOR: Record<string, string> = {
   critical: '#ef4444',
@@ -27,6 +28,9 @@ export default async function FindingDetailPage({ params }: { params: Promise<{ 
 
   const { data: profile } = await supabase.from('users').select('tenant_id').eq('supabase_uid', user.id).single()
   if (!profile) redirect('/login')
+
+  const { data: tenantRow } = await supabase.from('tenants').select('timezone').eq('id', profile.tenant_id).single()
+  const timezone = tenantRow?.timezone ?? 'UTC'
 
   const { data: finding } = await supabase
     .from('findings')
@@ -227,7 +231,7 @@ export default async function FindingDetailPage({ params }: { params: Promise<{ 
               {scan && (
                 <>
                   <Row label="Scan type" value={scan.scan_type} />
-                  <Row label="Started" value={scan.started_at ? new Date(scan.started_at).toLocaleString('en-GB') : '—'} />
+                  <Row label="Started" value={scan.started_at ? formatFriendly(scan.started_at, timezone) : '—'} />
                 </>
               )}
               {scan?.id && (
@@ -261,7 +265,7 @@ export default async function FindingDetailPage({ params }: { params: Promise<{ 
               Timeline
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <Row label="Discovered" value={new Date(finding.created_at).toLocaleString('en-GB')} />
+              <Row label="Discovered" value={formatFriendly(finding.created_at, timezone)} />
               <Row label="Status" value={finding.status} />
             </div>
           </div>

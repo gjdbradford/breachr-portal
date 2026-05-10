@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import LaunchScanButton from '@/components/LaunchScanButton'
 import ScansEmptyState from '@/components/ScansEmptyState'
+import { formatFriendly } from '@/lib/format-date'
 
 const STATUS_COLOR: Record<string, string> = {
   complete: '#22c55e',
@@ -55,7 +56,7 @@ export default async function ScansPage() {
       .eq('tenant_id', tenantId),
     supabase
       .from('tenants')
-      .select('plan, plan_scans_limit, plan_targets_limit, plan_tokens_limit, scans_this_month, tokens_used_this_month')
+      .select('plan, plan_scans_limit, plan_targets_limit, plan_tokens_limit, scans_this_month, tokens_used_this_month, timezone')
       .eq('id', tenantId)
       .single(),
   ])
@@ -222,9 +223,9 @@ export default async function ScansPage() {
                     <td>
                       <Link href={href} style={{ textDecoration: 'none', display: 'block', color: '#64748b', fontSize: 12 }}>
                         {scan.completed_at
-                          ? new Date(scan.completed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                          ? formatFriendly(scan.completed_at, tenant?.timezone ?? 'UTC')
                           : scan.started_at
-                            ? new Date(scan.started_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                            ? formatFriendly(scan.started_at, tenant?.timezone ?? 'UTC')
                             : '—'}
                       </Link>
                     </td>

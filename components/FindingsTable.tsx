@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import ExportButton from './ExportButton'
+import { formatFriendly } from '@/lib/format-date'
 
 type Finding = {
   id: string
@@ -49,6 +50,7 @@ export default function FindingsTable({
   availableTargets,
   availableScanTypes,
   canExport,
+  timezone = 'UTC',
 }: {
   findings: Finding[]
   filteredCount: number
@@ -59,6 +61,7 @@ export default function FindingsTable({
   availableTargets: string[]
   availableScanTypes: string[]
   canExport: boolean
+  timezone?: string
 }) {
   const router      = useRouter()
   const searchParams = useSearchParams()
@@ -391,7 +394,7 @@ export default function FindingsTable({
                     </button>
                   </td>
                   <td style={{ color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>
-                    {new Date(f.created_at).toLocaleDateString('en-GB')}
+                    {formatFriendly(f.created_at, timezone)}
                   </td>
                 </tr>
               ))}
@@ -413,8 +416,8 @@ export default function FindingsTable({
       {/* Pagination */}
       {totalPages > 1 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, flexWrap: 'wrap', gap: 8 }}>
-          <span style={{ fontSize: 11, color: '#475569' }}>
-            Page {page} of {totalPages} · {filteredCount} results
+          <span style={{ fontSize: 12, color: '#475569' }}>
+            Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, filteredCount)} of {filteredCount} finding{filteredCount !== 1 ? 's' : ''}
           </span>
           <div style={{ display: 'flex', gap: 6 }}>
             <button

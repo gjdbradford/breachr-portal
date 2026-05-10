@@ -76,10 +76,12 @@ export default async function FindingsPage({
   }
 
   // Run support queries in parallel (sev counts + dropdown options are always unfiltered)
-  const [sevCountsRes, scansMetaRes] = await Promise.all([
+  const [sevCountsRes, scansMetaRes, tenantTimezoneRes] = await Promise.all([
     supabase.from('findings').select('severity').eq('tenant_id', tenantId),
     supabase.from('scans').select('scan_type, attack_surfaces(name)').eq('tenant_id', tenantId),
+    supabase.from('tenants').select('timezone').eq('id', tenantId).single(),
   ])
+  const timezone = tenantTimezoneRes.data?.timezone ?? 'UTC'
 
   const sevCounts: Record<string, number> = {}
   for (const f of sevCountsRes.data ?? []) {
@@ -109,7 +111,7 @@ export default async function FindingsPage({
   if (!filteredBase) {
     return renderPage({
       findings: [], filteredCount: 0, totalCount, page,
-      sevCounts, availableTargets, availableScanTypes, canExport,
+      sevCounts, availableTargets, availableScanTypes, canExport, timezone,
     })
   }
 
@@ -136,12 +138,13 @@ export default async function FindingsPage({
     availableTargets,
     availableScanTypes,
     canExport,
+    timezone,
   })
 }
 
 function renderPage({
   findings, filteredCount, totalCount, page,
-  sevCounts, availableTargets, availableScanTypes, canExport,
+  sevCounts, availableTargets, availableScanTypes, canExport, timezone = 'UTC',
 }: {
   findings: any[]
   filteredCount: number
@@ -151,6 +154,7 @@ function renderPage({
   availableTargets: string[]
   availableScanTypes: string[]
   canExport: boolean
+  timezone?: string
 }) {
   if (totalCount === 0) {
     return (
@@ -185,6 +189,7 @@ function renderPage({
           availableTargets={availableTargets}
           availableScanTypes={availableScanTypes}
           canExport={canExport}
+          timezone={timezone}
         />
       </Suspense>
     </div>

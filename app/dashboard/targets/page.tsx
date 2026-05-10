@@ -13,7 +13,7 @@ export default async function TargetsPage() {
 
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('plan, plan_targets_limit')
+    .select('plan, plan_targets_limit, timezone')
     .eq('id', tenantId)
     .single()
 
@@ -89,6 +89,7 @@ export default async function TargetsPage() {
         tenantId={tenantId}
         planId={tenant?.plan ?? 'free'}
         targetsMax={tenant?.plan_targets_limit ?? 1}
+        timezone={tenant?.timezone ?? 'UTC'}
       />
     </div>
   )

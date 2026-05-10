@@ -16,11 +16,11 @@ export default async function SettingsPage() {
 
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('name, industry, company_size, country, compliance_frameworks')
+    .select('name, industry, company_size, country, timezone, compliance_frameworks')
     .eq('id', profile.tenant_id)
     .single()
 
-  const tenantData = tenant ?? { name: '', industry: '', company_size: '', country: null, compliance_frameworks: [] }
+  const tenantData = tenant ?? { name: '', industry: '', company_size: '', country: null, timezone: 'UTC', compliance_frameworks: [] }
   const userData   = { email: profile.email ?? user.email ?? '', role: profile.role ?? 'member', phone: profile.phone ?? '' }
 
   return (

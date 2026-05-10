@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { COUNTRIES } from '@/lib/countries'
+import { TIMEZONES, TZ_REGIONS } from '@/lib/timezones'
 
 type Step = 1 | 2 | 3 | 4
 
@@ -70,7 +71,11 @@ export default function OnboardingPage() {
 
   // Step 1 — location & mobile
   const [country, setCountry]           = useState('')
+  const [timezone, setTimezone]         = useState('UTC')
   const [mobileNumber, setMobileNumber] = useState('')
+  const [tzOpen, setTzOpen]             = useState(false)
+  const [tzSearch, setTzSearch]         = useState('')
+  const tzRef = useRef<HTMLDivElement>(null)
 
   // Step 2 — target URLs
   const [targets, setTargets]           = useState([{ name: '', url: '', type: 'webapp' }])
@@ -93,6 +98,10 @@ export default function OnboardingPage() {
       if (countryRef.current && !countryRef.current.contains(e.target as Node)) {
         setCountryOpen(false)
         setCountrySearch('')
+      }
+      if (tzRef.current && !tzRef.current.contains(e.target as Node)) {
+        setTzOpen(false)
+        setTzSearch('')
       }
     }
     document.addEventListener('mousedown', handleClick)
@@ -118,13 +127,14 @@ export default function OnboardingPage() {
 
       const { data: tenant } = await supabase
         .from('tenants')
-        .select('country, compliance_frameworks, onboarding_complete')
+        .select('country, timezone, compliance_frameworks, onboarding_complete')
         .eq('id', profile.tenant_id)
         .single()
 
       if (tenant) {
         if (tenant.onboarding_complete) { router.push('/dashboard'); return }
         if (tenant.country)              setCountry(tenant.country)
+        if (tenant.timezone)             setTimezone(tenant.timezone)
         if (tenant.compliance_frameworks?.length) setFrameworks(tenant.compliance_frameworks)
       }
 
@@ -142,7 +152,7 @@ export default function OnboardingPage() {
     const fullPhone = mobileNumber.trim() ? `${dialCode} ${mobileNumber.trim()}` : null
 
     const [tenantRes] = await Promise.all([
-      supabase.from('tenants').update({ country }).eq('id', tenantId),
+      supabase.from('tenants').update({ country, timezone }).eq('id', tenantId),
       fullPhone
         ? supabase.from('users').update({ phone: fullPhone } as any).eq('id', userId)
         : Promise.resolve({ error: null }),
@@ -314,6 +324,75 @@ export default function OnboardingPage() {
                           <span style={{ color: '#475569', fontSize: 12, fontFamily: 'monospace' }}>{c.dial}</span>
                         </button>
                       ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginBottom: 16, position: 'relative' }} ref={tzRef}>
+                <label className="form-label">Timezone *</label>
+                <button
+                  type="button"
+                  onClick={() => { setTzOpen(o => !o); setTzSearch('') }}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 14px', borderRadius: 8, cursor: 'pointer', textAlign: 'left',
+                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+                    color: '#e2e8f0', fontSize: 14,
+                  }}
+                >
+                  <span>{TIMEZONES.find(t => t.iana === timezone)?.label ?? timezone}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ opacity: 0.5, flexShrink: 0, transform: tzOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                    <path d="M6 9l6 6 6-6"/>
+                  </svg>
+                </button>
+                {tzOpen && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, marginTop: 4,
+                    background: '#0d1428', border: '1px solid rgba(25,118,210,0.3)', borderRadius: 8,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)', overflow: 'hidden',
+                  }}>
+                    <div style={{ padding: '8px 10px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <input
+                        autoFocus
+                        type="text"
+                        placeholder="Search timezone…"
+                        value={tzSearch}
+                        onChange={e => setTzSearch(e.target.value)}
+                        style={{
+                          width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: 6, padding: '7px 10px', color: '#e2e8f0', fontSize: 13, outline: 'none', boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+                      {TZ_REGIONS.map(region => {
+                        const items = TIMEZONES.filter(t => t.region === region && (
+                          !tzSearch || t.label.toLowerCase().includes(tzSearch.toLowerCase()) || t.iana.toLowerCase().includes(tzSearch.toLowerCase())
+                        ))
+                        if (items.length === 0) return null
+                        return (
+                          <div key={region}>
+                            <div style={{ padding: '6px 14px 2px', fontSize: 10, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{region}</div>
+                            {items.map(t => (
+                              <button
+                                key={t.iana}
+                                type="button"
+                                onClick={() => { setTimezone(t.iana); setTzOpen(false); setTzSearch('') }}
+                                style={{
+                                  width: '100%', display: 'flex', alignItems: 'center',
+                                  padding: '9px 14px', background: t.iana === timezone ? 'rgba(25,118,210,0.15)' : 'transparent',
+                                  border: 'none', cursor: 'pointer', color: '#e2e8f0', fontSize: 14, textAlign: 'left',
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = t.iana === timezone ? 'rgba(25,118,210,0.15)' : 'transparent')}
+                              >
+                                {t.label}
+                              </button>
+                            ))}
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )}

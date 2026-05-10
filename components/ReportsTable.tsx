@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { formatFriendly } from '@/lib/format-date'
 
 const FRAMEWORK_COLOURS: Record<string, string> = {
   'DORA':    '#1976d2',
@@ -10,9 +11,12 @@ const FRAMEWORK_COLOURS: Record<string, string> = {
 }
 
 const DATE_PRESETS = [
-  { label: 'Last 30d', value: '30d' },
-  { label: 'Last 90d', value: '90d' },
-  { label: 'Last year', value: '1y' },
+  { label: 'Today',      value: 'today' },
+  { label: 'This week',  value: '7d'    },
+  { label: '2 weeks',    value: '14d'   },
+  { label: 'Last 30d',   value: '30d'   },
+  { label: 'Last 90d',   value: '90d'   },
+  { label: 'Last year',  value: '1y'    },
 ]
 
 function SeveritySummary({ summary }: { summary: Record<string, number> | null }) {
@@ -40,10 +44,11 @@ interface Props {
   frameworkCounts:  Record<string, number>
   enabledFrameworks: string[]
   orgCount?:        number
+  timezone?:        string
 }
 
 export default function ReportsTable({
-  reports, filteredCount, totalCount, page, pageSize, frameworkCounts, enabledFrameworks, orgCount = 0,
+  reports, filteredCount, totalCount, page, pageSize, frameworkCounts, enabledFrameworks, orgCount = 0, timezone = 'UTC',
 }: Props) {
   const router       = useRouter()
   const searchParams = useSearchParams()
@@ -87,7 +92,7 @@ export default function ReportsTable({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
       {/* Filter bar */}
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', padding: '0 24px' }}>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', padding: '12px 24px 0' }}>
 
         {/* Framework pills */}
         {allFrameworks.length > 0 && (
@@ -227,9 +232,7 @@ export default function ReportsTable({
                     <SeveritySummary summary={r.framework_summary} />
                   </td>
                   <td style={{ color: '#64748b', fontSize: 12 }}>
-                    {r.generated_at
-                      ? new Date(r.generated_at).toLocaleDateString('en-GB')
-                      : new Date(r.created_at).toLocaleDateString('en-GB')}
+                    {formatFriendly(r.generated_at ?? r.created_at, timezone)}
                   </td>
                   <td>
                     {r.status === 'ready' ? (
@@ -279,7 +282,11 @@ export default function ReportsTable({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 4, padding: '0 24px 8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px 8px', flexWrap: 'wrap', gap: 8 }}>
+          <span style={{ fontSize: 12, color: '#475569' }}>
+            Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, filteredCount)} of {filteredCount} report{filteredCount !== 1 ? 's' : ''}
+          </span>
+          <div style={{ display: 'flex', gap: 4 }}>
           <button
             onClick={() => goToPage(page - 1)}
             disabled={page === 1}
@@ -330,6 +337,7 @@ export default function ReportsTable({
           >
             →
           </button>
+          </div>
         </div>
       )}
     </div>
