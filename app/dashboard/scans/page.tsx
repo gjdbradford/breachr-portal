@@ -4,6 +4,7 @@ import Link from 'next/link'
 import LaunchScanButton from '@/components/LaunchScanButton'
 import ScansEmptyState from '@/components/ScansEmptyState'
 import { formatFriendly } from '@/lib/format-date'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 
 const STATUS_COLOR: Record<string, string> = {
   complete: '#22c55e',
@@ -39,7 +40,7 @@ export default async function ScansPage() {
 
   const tenantId = profile.tenant_id
 
-  const [{ data: scans }, { data: surfaces }, { data: findingCounts }, { data: tenant }] = await Promise.all([
+  const [{ data: scans }, { data: surfaces }, { data: findingCounts }, { data: tenant }, resolved] = await Promise.all([
     supabase
       .from('scans')
       .select('*, attack_surfaces(name, target_url)')
@@ -59,6 +60,7 @@ export default async function ScansPage() {
       .select('plan, plan_scans_limit, plan_targets_limit, plan_tokens_limit, scans_this_month, tokens_used_this_month, timezone')
       .eq('id', tenantId)
       .single(),
+    resolvePermissions(user.id),
   ])
 
   // Build findings count map
@@ -96,6 +98,7 @@ export default async function ScansPage() {
             planId={tenant?.plan ?? 'free'}
             scansThisMonth={tenant?.scans_this_month ?? 0}
             tokensThisMonth={tenant?.tokens_used_this_month ?? 0}
+            canCreate={resolved['scans.create']}
           />
         )}
       </div>

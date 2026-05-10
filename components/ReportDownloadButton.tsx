@@ -7,10 +7,13 @@ type Mode = 'summary' | 'full'
 export default function ReportDownloadButton({
   reportId,
   framework,
+  canExport,
 }: {
   reportId: string
   framework: string
+  canExport?: boolean
 }) {
+  if (canExport === false) return null
   const [mode, setMode]       = useState<Mode>('summary')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')

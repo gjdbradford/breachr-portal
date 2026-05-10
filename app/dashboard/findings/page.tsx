@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import FindingsTable from '@/components/FindingsTable'
 import FindingsEmptyState from '@/components/FindingsEmptyState'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 
 const PAGE_SIZE = 50
 
@@ -30,7 +31,9 @@ export default async function FindingsPage({
   if (!profile) redirect('/login')
 
   const tenantId = profile.tenant_id
-  const canExport = ['account_owner', 'admin'].includes((profile as any).role ?? '')
+  const resolved = await resolvePermissions(user.id)
+  const canExport = resolved['exports.create']
+  const canUpdate = resolved['findings.update']
 
   // Parse filter params
   const sevFilter    = params.sev    ? params.sev.split(',').filter(Boolean)    : []
@@ -111,7 +114,7 @@ export default async function FindingsPage({
   if (!filteredBase) {
     return renderPage({
       findings: [], filteredCount: 0, totalCount, page,
-      sevCounts, availableTargets, availableScanTypes, canExport, timezone,
+      sevCounts, availableTargets, availableScanTypes, canExport, canUpdate, timezone,
     })
   }
 
@@ -138,13 +141,14 @@ export default async function FindingsPage({
     availableTargets,
     availableScanTypes,
     canExport,
+    canUpdate,
     timezone,
   })
 }
 
 function renderPage({
   findings, filteredCount, totalCount, page,
-  sevCounts, availableTargets, availableScanTypes, canExport, timezone = 'UTC',
+  sevCounts, availableTargets, availableScanTypes, canExport, canUpdate, timezone = 'UTC',
 }: {
   findings: any[]
   filteredCount: number
@@ -154,6 +158,7 @@ function renderPage({
   availableTargets: string[]
   availableScanTypes: string[]
   canExport: boolean
+  canUpdate: boolean
   timezone?: string
 }) {
   if (totalCount === 0) {
@@ -189,6 +194,7 @@ function renderPage({
           availableTargets={availableTargets}
           availableScanTypes={availableScanTypes}
           canExport={canExport}
+          canUpdate={canUpdate}
           timezone={timezone}
         />
       </Suspense>

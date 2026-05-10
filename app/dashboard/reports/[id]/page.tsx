@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import AuditLogger from '@/components/AuditLogger'
 import ReportDownloadButton from '@/components/ReportDownloadButton'
 import { formatFriendly, formatFriendlyDate } from '@/lib/format-date'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 
 const SEV_ORDER = ['critical', 'high', 'medium', 'low', 'info']
 
@@ -38,7 +39,10 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
   const { data: profile } = await supabase.from('users').select('tenant_id').eq('supabase_uid', user.id).single()
   if (!profile) redirect('/login')
 
-  const { data: tenantRow } = await supabase.from('tenants').select('timezone').eq('id', profile.tenant_id).single()
+  const [{ data: tenantRow }, resolved] = await Promise.all([
+    supabase.from('tenants').select('timezone').eq('id', profile.tenant_id).single(),
+    resolvePermissions(user.id),
+  ])
   const timezone = tenantRow?.timezone ?? 'UTC'
 
   const { data: report } = await supabase
@@ -89,7 +93,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
           }}>
             {risk}
           </span>
-          <ReportDownloadButton reportId={report.id} framework={report.framework} />
+          <ReportDownloadButton reportId={report.id} framework={report.framework} canExport={resolved['reports.export']} />
         </div>
       </div>
 

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import InventoryEmptyState from '@/components/InventoryEmptyState'
 import InventoryTable from '@/components/InventoryTable'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 
 const PAGE_SIZE = 50
 
@@ -44,6 +45,7 @@ export default async function InventoryPage({
   const [
     { data: assets, count: totalCount },
     { data: tenantRow },
+    resolved,
   ] = await Promise.all([
     supabase
       .from('assets')
@@ -52,6 +54,7 @@ export default async function InventoryPage({
       .order('risk_score', { ascending: false })
       .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1),
     supabase.from('tenants').select('timezone').eq('id', profile.tenant_id).single(),
+    resolvePermissions(user.id),
   ])
   const timezone = tenantRow?.timezone ?? 'UTC'
 
@@ -112,8 +115,8 @@ export default async function InventoryPage({
             <InventoryTable
               assets={assetList}
               portCountMap={portCountMap}
-              canClassify={['account_owner', 'admin'].includes(profile.role ?? '')}
-              canExport={['account_owner', 'admin'].includes(profile.role ?? '')}
+              canClassify={resolved['assets.update']}
+              canExport={resolved['exports.create']}
               page={page}
               pageSize={PAGE_SIZE}
               totalCount={total}

@@ -50,13 +50,16 @@ export default function LaunchScanButton({
   planId,
   scansThisMonth,
   tokensThisMonth,
+  canCreate,
 }: {
   surfaces: Surface[]
   tenantId: string
   planId?: string
   scansThisMonth?: number
   tokensThisMonth?: number
+  canCreate?: boolean
 }) {
+  if (canCreate === false) return null
   const [open, setOpen] = useState(false)
   const [showUpgradeWall, setShowUpgradeWall] = useState(false)
   const [surfaceId, setSurfaceId] = useState(surfaces[0]?.id ?? '')

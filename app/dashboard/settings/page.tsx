@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import SettingsTabs from '@/components/settings/SettingsTabs'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -14,11 +15,14 @@ export default async function SettingsPage() {
     .single()
   if (!profile) redirect('/login')
 
-  const { data: tenant } = await supabase
-    .from('tenants')
-    .select('name, industry, company_size, country, timezone, compliance_frameworks')
-    .eq('id', profile.tenant_id)
-    .single()
+  const [{ data: tenant }, resolved] = await Promise.all([
+    supabase
+      .from('tenants')
+      .select('name, industry, company_size, country, timezone, compliance_frameworks')
+      .eq('id', profile.tenant_id)
+      .single(),
+    resolvePermissions(user.id),
+  ])
 
   const tenantData = tenant ?? { name: '', industry: '', company_size: '', country: null, timezone: 'UTC', compliance_frameworks: [] }
   const userData   = { email: profile.email ?? user.email ?? '', role: profile.role ?? 'member', phone: profile.phone ?? '' }
@@ -36,6 +40,7 @@ export default async function SettingsPage() {
         user={userData}
         tenantId={profile.tenant_id}
         currentUserId={user.id}
+        canInvite={resolved['team.invite']}
       />
     </div>
   )

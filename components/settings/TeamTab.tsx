@@ -43,13 +43,16 @@ function RoleBadge({ role }: { role: string }) {
 export default function TeamTab({
   currentUserId,
   currentUserRole,
+  canInvite,
   timezone = 'UTC',
 }: {
   currentUserId: string
   currentUserRole: string
+  canInvite?: boolean
   timezone?: string
 }) {
   const isOwner = currentUserRole === 'account_owner'
+  const showInviteControls = canInvite !== undefined ? canInvite : isOwner
   const [members, setMembers]               = useState<Member[]>([])
   const [invitations, setInvitations]       = useState<Invitation[]>([])
   const [loading, setLoading]               = useState(true)
@@ -153,7 +156,7 @@ export default function TeamTab({
           <h3 style={{ fontSize: 14, fontWeight: 600, color: '#e2e8f0', margin: 0 }}>Team Members</h3>
           <p style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{members.length} member{members.length !== 1 ? 's' : ''}</p>
         </div>
-        {isOwner && !showInviteForm && (
+        {showInviteControls && !showInviteForm && (
           <button
             type="button"
             onClick={() => { setShowInviteForm(true); setError(''); setSuccess('') }}

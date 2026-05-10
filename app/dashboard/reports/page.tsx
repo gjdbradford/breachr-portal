@@ -5,6 +5,7 @@ import ReportsTable from '@/components/ReportsTable'
 import GenerateReportButton from '@/components/GenerateReportButton'
 import ReportsEmptyState from '@/components/ReportsEmptyState'
 import ExportsTab from '@/components/ExportsTab'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 
 const PAGE_SIZE = 25
 
@@ -64,6 +65,7 @@ export default async function ReportsPage({
     { data: frameworkRows },
     { count: orgCount },
     { data: tenantRow },
+    resolved,
   ] = await Promise.all([
     applyFilters(
       supabase
@@ -95,6 +97,7 @@ export default async function ReportsPage({
       .select('compliance_frameworks, timezone')
       .eq('id', tenantId)
       .single(),
+    resolvePermissions(user.id),
   ])
 
   const frameworkCounts: Record<string, number> = {}
@@ -113,7 +116,7 @@ export default async function ReportsPage({
             <h1 className="font-display" style={{ fontSize: 20, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.05em' }}>REPORTS</h1>
             <p style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>No reports yet</p>
           </div>
-          <GenerateReportButton enabledFrameworks={enabledFrameworks} />
+          <GenerateReportButton enabledFrameworks={enabledFrameworks} canGenerate={resolved['reports.generate']} />
         </div>
         <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <a href="?" style={{
@@ -147,7 +150,7 @@ export default async function ReportsPage({
           <h1 className="font-display" style={{ fontSize: 20, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.05em' }}>REPORTS</h1>
           <p style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>{orgCount ?? 0} organisational reports · {totalCount ?? 0} total</p>
         </div>
-        <GenerateReportButton enabledFrameworks={enabledFrameworks} />
+        <GenerateReportButton enabledFrameworks={enabledFrameworks} canGenerate={resolved['reports.generate']} />
       </div>
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <a href="?" style={{

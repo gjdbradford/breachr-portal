@@ -20,11 +20,13 @@ export default function SettingsTabs({
   user,
   tenantId,
   currentUserId,
+  canInvite,
 }: {
   tenant: TenantProfile & { compliance_frameworks: string[] }
   user: UserProfile
   tenantId: string
   currentUserId: string
+  canInvite?: boolean
 }) {
   const isOwner = user.role === 'account_owner'
   const tabs: Tab[] = isOwner
@@ -55,7 +57,7 @@ export default function SettingsTabs({
 
       {activeTab === 'profile'     && <ProfileTab tenant={tenant} user={user} tenantId={tenantId} currentUserId={currentUserId} />}
       {activeTab === 'compliance'  && <ComplianceTab frameworks={tenant.compliance_frameworks} tenantId={tenantId} />}
-      {activeTab === 'team'        && <TeamTab currentUserId={currentUserId} currentUserRole={user.role} timezone={tenant.timezone ?? 'UTC'} />}
+      {activeTab === 'team'        && <TeamTab currentUserId={currentUserId} currentUserRole={user.role} canInvite={canInvite} timezone={tenant.timezone ?? 'UTC'} />}
       {activeTab === 'permissions' && isOwner && <PermissionsTab />}
     </div>
   )

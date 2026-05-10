@@ -23,9 +23,12 @@ const FRAMEWORK_COLOURS: Record<Framework, string> = {
 
 export default function GenerateReportButton({
   enabledFrameworks,
+  canGenerate,
 }: {
   enabledFrameworks: string[]
+  canGenerate?: boolean
 }) {
+  if (canGenerate === false) return null
   const router = useRouter()
   // enabledFrameworks comes from a server component and won't change after mount
   const available = enabledFrameworks.filter((f): f is Framework =>

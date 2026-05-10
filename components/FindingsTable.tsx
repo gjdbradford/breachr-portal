@@ -50,6 +50,7 @@ export default function FindingsTable({
   availableTargets,
   availableScanTypes,
   canExport,
+  canUpdate = true,
   timezone = 'UTC',
 }: {
   findings: Finding[]
@@ -61,6 +62,7 @@ export default function FindingsTable({
   availableTargets: string[]
   availableScanTypes: string[]
   canExport: boolean
+  canUpdate?: boolean
   timezone?: string
 }) {
   const router      = useRouter()
@@ -389,9 +391,13 @@ export default function FindingsTable({
                       : <span style={{ color: '#334155' }}>—</span>}
                   </td>
                   <td>
-                    <button onClick={() => toggleStatus(f.status)} style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}>
+                    {canUpdate !== false ? (
+                      <button onClick={() => toggleStatus(f.status)} style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}>
+                        <StatusPill status={f.status} />
+                      </button>
+                    ) : (
                       <StatusPill status={f.status} />
-                    </button>
+                    )}
                   </td>
                   <td style={{ color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>
                     {formatFriendly(f.created_at, timezone)}
