@@ -22,13 +22,30 @@ export async function GET() {
 
   const { data: entries, error } = await adminClient
     .from('audit_logs')
-    .select('id, action, detail, tenant_id, prev_hash, signature, created_at')
+    .select('id, action, detail, tenant_id, prev_hash, signature, created_at, chain_annotation, chain_annotation_by, chain_annotation_at')
     .eq('tenant_id', profile.tenant_id)
     .order('created_at', { ascending: true })
     .order('id', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!entries?.length) return NextResponse.json({ allValid: true, entries: [] })
+
+  // Resolve annotator display names
+  const annotatorIds = [...new Set(
+    entries
+      .filter(e => e.chain_annotation_by)
+      .map(e => e.chain_annotation_by as string)
+  )]
+  const nameMap: Record<string, string> = {}
+  if (annotatorIds.length) {
+    const { data: annotators } = await adminClient
+      .from('users')
+      .select('id, first_name, last_name, email')
+      .in('id', annotatorIds)
+    for (const u of annotators ?? []) {
+      nameMap[u.id] = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email
+    }
+  }
 
   const results = await Promise.all(entries.map(async (entry, i) => {
     const expectedPrevHash = i === 0
@@ -46,7 +63,17 @@ export async function GET() {
     const expectedSig = hmacSha256Hex(signingKey, payload)
     const sigValid = safeEqual(expectedSig, entry.signature ?? '')
 
-    return { id: entry.id, action: entry.action, created_at: entry.created_at, chainValid, sigValid, valid: chainValid && sigValid }
+    return {
+      id: entry.id,
+      action: entry.action,
+      created_at: entry.created_at,
+      chainValid,
+      sigValid,
+      valid: chainValid && sigValid,
+      chain_annotation:    entry.chain_annotation    ?? null,
+      chain_annotation_at: entry.chain_annotation_at ?? null,
+      annotator_name:      entry.chain_annotation_by ? (nameMap[entry.chain_annotation_by] ?? null) : null,
+    }
   }))
 
   const allValid = results.every(r => r.valid)
