@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { AuditLog } from '@/lib/types'
 import ExportButton from './ExportButton'
+import { formatFriendly, formatFriendlyDate } from '@/lib/format-date'
 
 const ACTION_META: Record<string, { label: string; icon: string; color: string }> = {
   'scan.launched':           { label: 'Scan Launched',      icon: '⟳', color: '#42a5f5' },
@@ -15,6 +16,8 @@ const ACTION_META: Record<string, { label: string; icon: string; color: string }
   'finding.verified_fixed':  { label: 'Fix Verified',        icon: '✓', color: '#22c55e' },
   'report.viewed':           { label: 'Report Viewed',       icon: '▤', color: '#64748b' },
   'report.downloaded':       { label: 'Report Downloaded',   icon: '↓', color: '#64748b' },
+  'export.requested':        { label: 'Export Requested',    icon: '↓', color: '#a78bfa' },
+  'export.completed':        { label: 'Export Completed',    icon: '✓', color: '#22c55e' },
   'target.created':          { label: 'Target Added',        icon: '◎', color: '#42a5f5' },
   'target.deleted':          { label: 'Target Removed',      icon: '✕', color: '#ef4444' },
   'settings.updated':        { label: 'Settings Updated',    icon: '⚙', color: '#94a3b8' },
@@ -53,7 +56,32 @@ function formatDetail(action: string, detail: Record<string, string>): string {
     return `${detail.title ?? ''}${detail.severity ? ` (${detail.severity})` : ''}`
   }
   if (action === 'report.viewed') return detail.framework ?? ''
+  if (action === 'export.requested' || action === 'export.completed') {
+    const type = detail.data_type ?? ''
+    const fmt  = detail.format ? `(${detail.format.toUpperCase()})` : ''
+    const label = type === 'audit_trail' ? 'Audit Trail' : type === 'findings' ? 'Findings' : type === 'inventory' ? 'Inventory' : type
+    return `${label} ${fmt}`.trim()
+  }
   return Object.values(detail).slice(0, 2).join(' · ')
+}
+
+type VerifyEntry = {
+  id: string
+  action: string
+  created_at: string
+  chainValid: boolean
+  sigValid: boolean
+  valid: boolean
+  chain_annotation: string | null
+  chain_annotation_at: string | null
+  annotator_name: string | null
+}
+
+type ServerResult = {
+  allValid: boolean
+  total: number
+  failed: number
+  failedEntries: VerifyEntry[]
 }
 
 export default function AuditChain({
@@ -63,6 +91,8 @@ export default function AuditChain({
   page,
   pageSize,
   canExport,
+  userRole,
+  timezone = 'UTC',
 }: {
   entries: AuditLog[]
   filteredCount: number
@@ -70,6 +100,8 @@ export default function AuditChain({
   page: number
   pageSize: number
   canExport: boolean
+  userRole: string
+  timezone?: string
 }) {
   const router      = useRouter()
   const searchParams = useSearchParams()
@@ -77,9 +109,15 @@ export default function AuditChain({
   const groupFilter = searchParams.get('group') ?? ''
   const datePreset  = searchParams.get('date')  ?? ''
 
-  const [verifying, setVerifying]     = useState(false)
-  const [serverResult, setServerResult] = useState<{ allValid: boolean; total: number } | null>(null)
-  const [expanded, setExpanded]       = useState<string | null>(null)
+  const [verifying, setVerifying]               = useState(false)
+  const [serverResult, setServerResult]         = useState<ServerResult | null>(null)
+  const [expanded, setExpanded]                 = useState<string | null>(null)
+  const [annotationDrafts, setAnnotationDrafts] = useState<Record<string, string>>({})
+  const [savingAnnotation, setSavingAnnotation] = useState<string | null>(null)
+  const [annotationError, setAnnotationError]   = useState<Record<string, string>>({})
+
+  const canAnnotate = userRole === 'admin' || userRole === 'account_owner'
+  const failedIds   = new Set((serverResult?.failedEntries ?? []).map(e => e.id))
 
   const setParam = useCallback((key: string, value: string | null) => {
     const p = new URLSearchParams(searchParams.toString())
@@ -101,9 +139,60 @@ export default function AuditChain({
     try {
       const res  = await fetch('/api/audit/verify')
       const data = await res.json()
-      setServerResult({ allValid: data.allValid, total: data.entries?.length ?? 0 })
+      const allEntries: VerifyEntry[] = (data.entries ?? []).map((e: VerifyEntry) => ({ ...e, id: String(e.id) }))
+      const failedEntries = allEntries.filter(e => !e.valid)
+      setServerResult({
+        allValid:      data.allValid,
+        total:         allEntries.length,
+        failed:        failedEntries.length,
+        failedEntries,
+      })
     } catch { /* ignore */ }
     finally { setVerifying(false) }
+  }
+
+  async function handleSaveAnnotation(entryId: string) {
+    const explanation = (annotationDrafts[entryId] ?? '').trim()
+    if (!explanation) return
+    setSavingAnnotation(entryId)
+    setAnnotationError(prev => ({ ...prev, [entryId]: '' }))
+    try {
+      const res = await fetch(`/api/audit/${entryId}/annotate`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ explanation }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setAnnotationError(prev => ({ ...prev, [entryId]: data.error ?? 'Save failed' }))
+        return
+      }
+      const now = new Date().toISOString()
+      setServerResult(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          failedEntries: prev.failedEntries.map(e =>
+            e.id === String(entryId)
+              ? { ...e, chain_annotation: explanation, chain_annotation_at: now, annotator_name: 'You' }
+              : e
+          ),
+        }
+      })
+      setAnnotationDrafts(prev => ({ ...prev, [entryId]: '' }))
+    } catch {
+      setAnnotationError(prev => ({ ...prev, [entryId]: 'Network error — try again' }))
+    } finally {
+      setSavingAnnotation(null)
+    }
+  }
+
+  function breakReason(entry: Pick<VerifyEntry, 'chainValid' | 'sigValid'>): string {
+    if (!entry.chainValid && !entry.sigValid)
+      return 'prev_hash mismatch and signature invalid — possible tampering or key change'
+    if (!entry.chainValid)
+      return 'prev_hash mismatch — concurrent writes to the chain detected'
+    return 'Signature invalid — signing key mismatch or entry modified after signing'
   }
 
   const hasFilters = groupFilter || datePreset
@@ -112,7 +201,7 @@ export default function AuditChain({
   // Group entries by date (entries arrive newest-first from server)
   const byDate: { date: string; items: AuditLog[] }[] = []
   for (const e of entries) {
-    const d = new Date(e.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    const d = formatFriendlyDate(e.created_at, timezone)
     const last = byDate[byDate.length - 1]
     if (last?.date === d) last.items.push(e)
     else byDate.push({ date: d, items: [e] })
@@ -138,7 +227,9 @@ export default function AuditChain({
           <div className="gs" style={{ flex: 1, minWidth: 140, padding: '14px 18px', borderRadius: 10 }}>
             <p style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>HMAC Verification</p>
             <p style={{ fontSize: 14, fontWeight: 700, color: serverResult.allValid ? '#22c55e' : '#ef4444' }}>
-              {serverResult.allValid ? `🔐 All ${serverResult.total} valid` : '✗ Failed'}
+              {serverResult.allValid
+                ? `🔐 All ${serverResult.total} valid`
+                : `✗ ${serverResult.failed} of ${serverResult.total} failed`}
             </p>
           </div>
         )}
@@ -151,6 +242,101 @@ export default function AuditChain({
           {verifying ? 'Verifying…' : '🔐 Verify Chain'}
         </button>
       </div>
+
+      {/* Chain breaks panel */}
+      {serverResult && !serverResult.allValid && (
+        <div style={{ marginBottom: 16, border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ padding: '10px 16px', background: 'rgba(239,68,68,0.08)', borderBottom: '1px solid rgba(239,68,68,0.15)' }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#ef4444' }}>
+              Chain break{serverResult.failed !== 1 ? 's' : ''} detected — {serverResult.failed} entr{serverResult.failed !== 1 ? 'ies' : 'y'} failed verification
+            </p>
+          </div>
+          {serverResult.failedEntries.map(entry => {
+            const isAnnotated   = !!entry.chain_annotation
+            const editableUntil = entry.chain_annotation_at
+              ? new Date(new Date(entry.chain_annotation_at).getTime() + 24 * 60 * 60 * 1000)
+              : null
+            const isLocked  = editableUntil ? Date.now() > editableUntil.getTime() : false
+            const draft     = annotationDrafts[entry.id] ?? ''
+            const saving    = savingAnnotation === entry.id
+            const errMsg    = annotationError[entry.id] ?? ''
+
+            return (
+              <div key={entry.id} style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                {/* Entry header */}
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 8 }}>
+                  <span style={{ color: '#ef4444', fontSize: 14, marginTop: 1 }}>⚠</span>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: '#cbd5e1' }}>
+                      #{entry.id} · {entry.action} · {formatFriendly(entry.created_at, timezone)}
+                    </p>
+                    <p style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+                      {breakReason(entry)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Annotation area */}
+                {isAnnotated ? (
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '8px 12px' }}>
+                    <p style={{ fontSize: 10, color: '#e2e8f0', marginBottom: 4 }}>{entry.chain_annotation}</p>
+                    {isLocked ? (
+                      <p style={{ fontSize: 9, color: '#475569' }}>
+                        🔒 Locked · Saved by {entry.annotator_name ?? 'unknown'} · {entry.chain_annotation_at ? formatFriendly(entry.chain_annotation_at, timezone) : ''}
+                      </p>
+                    ) : (
+                      <>
+                        <p style={{ fontSize: 9, color: '#64748b' }}>
+                          Editable until {editableUntil ? editableUntil.toLocaleString() : ''}
+                          {' · '}Saved by {entry.annotator_name ?? 'unknown'}
+                        </p>
+                        {canAnnotate && (
+                          <button
+                            onClick={() => setAnnotationDrafts(prev => ({ ...prev, [entry.id]: entry.chain_annotation ?? '' }))}
+                            style={{ fontSize: 9, color: '#42a5f5', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 4 }}
+                          >
+                            Edit explanation
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ) : canAnnotate ? (
+                  <div>
+                    <textarea
+                      value={draft}
+                      onChange={e => setAnnotationDrafts(prev => ({ ...prev, [entry.id]: e.target.value }))}
+                      placeholder="Add an official explanation for this chain break…"
+                      style={{
+                        width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(239,68,68,0.3)',
+                        borderRadius: 6, color: '#e2e8f0', fontSize: 10, padding: '8px 10px',
+                        resize: 'vertical', minHeight: 56, fontFamily: 'inherit', boxSizing: 'border-box',
+                      }}
+                    />
+                    {errMsg && <p style={{ fontSize: 9, color: '#ef4444', marginTop: 3 }}>{errMsg}</p>}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                      <span style={{ fontSize: 9, color: '#475569' }}>Written once · editable for 24h after saving · locked permanently after</span>
+                      <button
+                        onClick={() => handleSaveAnnotation(entry.id)}
+                        disabled={saving || !draft.trim()}
+                        style={{
+                          background: draft.trim() ? '#ef4444' : 'rgba(239,68,68,0.3)',
+                          color: '#fff', border: 'none', borderRadius: 4, fontSize: 10,
+                          padding: '5px 12px', cursor: draft.trim() ? 'pointer' : 'default',
+                        }}
+                      >
+                        {saving ? 'Saving…' : 'Save to record'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 10, color: '#475569', fontStyle: 'italic' }}>No official explanation added yet.</p>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -252,7 +438,7 @@ export default function AuditChain({
                           {summary && <span style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 400 }}>{summary}</span>}
                         </div>
                         <div style={{ fontSize: 10, color: '#334155', marginTop: 2, fontFamily: 'monospace' }}>
-                          {new Date(entry.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} UTC
+                          {formatFriendly(entry.created_at, timezone)}
                         </div>
                       </div>
                       <span style={{ fontSize: 10, color: '#334155', flexShrink: 0 }}>{isExpanded ? '▴' : '▾'}</span>
@@ -296,8 +482,8 @@ export default function AuditChain({
       {/* Pagination */}
       {totalPages > 1 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <span style={{ fontSize: 11, color: '#475569' }}>
-            Page {page} of {totalPages} · {filteredCount} events
+          <span style={{ fontSize: 12, color: '#475569' }}>
+            Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, filteredCount)} of {filteredCount} event{filteredCount !== 1 ? 's' : ''}
           </span>
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={() => setPage(page - 1)} disabled={page <= 1} className="btn-s" style={{ fontSize: 11, padding: '6px 14px', opacity: page <= 1 ? 0.3 : 1, cursor: page <= 1 ? 'default' : 'pointer' }}>

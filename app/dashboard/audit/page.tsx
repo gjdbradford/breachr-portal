@@ -37,6 +37,9 @@ export default async function AuditPage({
   const tenantId = profile.tenant_id
   const canExport = ['account_owner', 'admin'].includes((profile as any).role ?? '')
 
+  const { data: tenantRow } = await supabase.from('tenants').select('timezone').eq('id', tenantId).single()
+  const timezone = tenantRow?.timezone ?? 'UTC'
+
   // Parse filter params
   const groupFilter = params.group ?? ''           // 'scans' | 'findings' | 'reports' | 'admin'
   const datePreset  = params.date  ?? ''           // '24h' | '7d' | '30d' | '90d'
@@ -97,6 +100,8 @@ export default async function AuditPage({
           page={page}
           pageSize={PAGE_SIZE}
           canExport={canExport}
+          userRole={(profile as any).role ?? ''}
+          timezone={timezone}
         />
       </Suspense>
     </div>
