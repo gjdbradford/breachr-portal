@@ -75,6 +75,9 @@ export interface AuditLog {
   signature: string | null
   prev_hash: string | null
   created_at: string
+  chain_annotation: string | null
+  chain_annotation_by: string | null
+  chain_annotation_at: string | null
 }
 
 export const DORA_ARTICLES = [
