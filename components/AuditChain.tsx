@@ -430,8 +430,13 @@ export default function AuditChain({
                       onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
-                      <div style={{ width: 30, height: 30, borderRadius: 8, background: `${meta.color}18`, border: `1px solid ${meta.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 13, color: meta.color }}>
-                        {meta.icon}
+                      <div style={{ position: 'relative', flexShrink: 0 }}>
+                        <div style={{ width: 30, height: 30, borderRadius: 8, background: `${meta.color}18`, border: `1px solid ${meta.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: meta.color }}>
+                          {meta.icon}
+                        </div>
+                        {failedIds.has(String(entry.id)) && (
+                          <span style={{ position: 'absolute', top: -3, right: -3, width: 9, height: 9, borderRadius: '50%', background: '#ef4444', border: '2px solid #0d1428' }} />
+                        )}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -470,6 +475,23 @@ export default function AuditChain({
                             <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#42a5f5' }}>{entry.signature ?? '—'}</span>
                           </div>
                         </div>
+                        {failedIds.has(String(entry.id)) && (() => {
+                          const ve = serverResult?.failedEntries.find(e => String(e.id) === String(entry.id))
+                          if (!ve) return null
+                          return (
+                            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(239,68,68,0.15)' }}>
+                              <p style={{ fontSize: 9, color: '#ef4444', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Chain Integrity</p>
+                              <p style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4 }}>{breakReason(ve)}</p>
+                              {ve.chain_annotation ? (
+                                <p style={{ fontSize: 10, color: '#64748b', fontStyle: 'italic' }}>"{ve.chain_annotation}" — {ve.annotator_name ?? 'unknown'}</p>
+                              ) : (
+                                <p style={{ fontSize: 10, color: '#475569' }}>
+                                  No explanation added.{canAnnotate ? ' Click Verify Chain → to annotate.' : ''}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </div>
                     )}
                   </div>
