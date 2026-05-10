@@ -4,6 +4,7 @@ import { createClient as adminClient } from '@supabase/supabase-js'
 import { randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
 import { VALID_DEPLOYMENT_TYPE_IDS, type DeploymentType } from '@/lib/sensor-types'
+import { logAuditEvent } from '@/lib/audit-log'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile } = await supabase
-    .from('users').select('tenant_id').eq('supabase_uid', user.id).single()
+    .from('users').select('id, tenant_id').eq('supabase_uid', user.id).single()
   if (!profile) return NextResponse.json({ error: 'No profile' }, { status: 403 })
 
   const body = await req.json().catch(() => ({}))
@@ -51,6 +52,21 @@ export async function POST(req: NextRequest) {
     console.error('[sensors] insert failed', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  await logAuditEvent({
+    tenantId: profile.tenant_id,
+    userId:   profile.id,
+    action:   'sensor.created',
+    detail:   { sensorId: sensor.id, name, deploymentType },
+  }).catch(err => console.error('[sensors] audit log failed:', err))
+
+  await admin.from('sensor_logs').insert({
+    sensor_id:  sensor.id,
+    tenant_id:  profile.tenant_id,
+    event_type: 'created',
+    message:    `Sensor registered: ${name}`,
+    metadata:   { deployment_type: deploymentType, location: location || null },
+  })
 
   return NextResponse.json({ id: sensor.id, token }, { status: 201 })
 }

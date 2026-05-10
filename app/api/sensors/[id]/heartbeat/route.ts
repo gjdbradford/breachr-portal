@@ -197,5 +197,18 @@ export async function POST(
     .eq('id', sensorId)
   if (sensorError) console.error('[heartbeat] sensor last_seen update failed', sensorError.message)
 
+  // Only log when new assets are discovered — logging every heartbeat would generate millions of rows/day at scale
+  if (newAssets.length > 0) {
+    admin.from('sensor_logs').insert({
+      sensor_id:  sensorId,
+      tenant_id:  sensor.tenant_id,
+      event_type: 'assets_discovered',
+      message:    `${newAssets.length} new asset${newAssets.length !== 1 ? 's' : ''} discovered`,
+      metadata:   { new_assets: newAssets.length, asset_count: assets.length, ips: newAssets.map(a => a.ip) },
+    }).then(({ error: logErr }) => {
+      if (logErr) console.error('[heartbeat] sensor_logs insert failed:', logErr.message)
+    })
+  }
+
   return NextResponse.json({ upserted })
 }

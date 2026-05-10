@@ -17,6 +17,8 @@ export const VALID_AUDIT_ACTIONS = [
   'export.requested', 'export.completed',
   // Remediation
   'remediation.updated',
+  // Sensors
+  'sensor.created', 'sensor.updated', 'sensor.activated', 'sensor.deactivated', 'sensor.token_regenerated',
   // Targets & settings
   'target.created', 'target.archived',
   'settings.updated',
