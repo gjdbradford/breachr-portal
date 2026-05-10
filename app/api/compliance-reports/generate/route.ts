@@ -27,7 +27,7 @@ async function handlePost(req: NextRequest) {
   if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile } = await supabase
-    .from('users').select('tenant_id').eq('id', authedUser.id).single()
+    .from('users').select('tenant_id').eq('supabase_uid', authedUser.id).single()
   if (!profile) return NextResponse.json({ error: 'No profile' }, { status: 403 })
 
   const resolved = await resolvePermissions(authedUser.id)
