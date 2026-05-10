@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient as adminClient } from '@supabase/supabase-js'
 import * as XLSX from 'xlsx'
 import { sendExportReadyEmail } from '@/lib/email'
+import { logAuditEvent } from '@/lib/audit-log'
 
 export const maxDuration = 300
 
@@ -92,6 +93,13 @@ export async function GET(req: NextRequest) {
           portalUrl:   process.env.NEXT_PUBLIC_APP_URL ?? 'https://breachr-portal.vercel.app',
         })
       }
+
+      await logAuditEvent({
+        tenantId: job.tenant_id,
+        userId:   job.requested_by ?? null,
+        action:   'export.completed',
+        detail:   { exportId: job.id, data_type: job.data_type, format: job.format, row_count: rows.length },
+      }).catch(() => {})
 
       processed++
     } catch (err) {

@@ -121,7 +121,10 @@ export async function sendExportReadyEmail({
   requestedAt: string
 }) {
   const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
-  if (!resend) return
+  if (!resend) {
+    console.warn('[email] sendExportReadyEmail skipped — RESEND_API_KEY not set')
+    return
+  }
 
   const labelMap: Record<string, string> = {
     findings: 'Findings', inventory: 'Inventory', audit_trail: 'Audit Trail',
@@ -204,5 +207,10 @@ export async function sendExportReadyEmail({
   </table>
 </body>
 </html>`,
-  }).catch(err => console.error('[email] sendExportReadyEmail failed:', err))
+  }).then(result => {
+    console.log('[email] sendExportReadyEmail sent to', to, '— id:', (result as any)?.data?.id, 'error:', (result as any)?.error)
+  }).catch(err => {
+    console.error('[email] sendExportReadyEmail failed:', err)
+    throw err
+  })
 }
