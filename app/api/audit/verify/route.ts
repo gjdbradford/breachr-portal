@@ -1,20 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
-import { createHmac, timingSafeEqual } from 'crypto'
 import { sha256Hex, GENESIS_HASH } from '@/lib/audit'
-
-function hmacSha256Hex(key: string, data: string): string {
-  return createHmac('sha256', Buffer.from(key, 'hex')).update(data, 'utf8').digest('hex')
-}
-
-function safeEqual(a: string, b: string): boolean {
-  try {
-    return timingSafeEqual(Buffer.from(a), Buffer.from(b))
-  } catch {
-    return false
-  }
-}
+import { hmacSha256Hex, safeEqual } from '@/lib/audit-hmac'
 
 export async function GET() {
   const signingKey = process.env.AUDIT_SIGNING_KEY
@@ -37,6 +25,7 @@ export async function GET() {
     .select('id, action, detail, tenant_id, prev_hash, signature, created_at')
     .eq('tenant_id', profile.tenant_id)
     .order('created_at', { ascending: true })
+    .order('id', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!entries?.length) return NextResponse.json({ allValid: true, entries: [] })
