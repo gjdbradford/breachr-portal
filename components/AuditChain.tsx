@@ -277,7 +277,8 @@ export default function AuditChain({
                 </div>
 
                 {/* Annotation area */}
-                {isAnnotated ? (
+                {/* isEditing: annotation exists but admin is actively editing it (draft populated) */}
+                {isAnnotated && !(canAnnotate && draft !== '') ? (
                   <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '8px 12px' }}>
                     <p style={{ fontSize: 10, color: '#e2e8f0', marginBottom: 4 }}>{entry.chain_annotation}</p>
                     {isLocked ? (
