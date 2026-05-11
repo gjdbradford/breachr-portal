@@ -105,10 +105,11 @@ test('account owner registers → onboards → invites admin → admin first log
     expect(action_link, 'action_link should be a non-empty string').toBeTruthy()
 
     // ── 9. Admin accepts invite ──────────────────────────────────────────
+    // Hoist the final URL wait before goto to avoid a race where /invite/confirm
+    // has already redirected to /invite/accept by the time waitForURL is registered
+    const acceptPagePromise = page.waitForURL(/\/invite\/accept/, { timeout: 20_000 })
     await page.goto(action_link)
-    // action_link → /invite/confirm (token exchange + signout) → /invite/accept
-    await page.waitForURL(/\/invite\/confirm/, { timeout: 20_000 })
-    await page.waitForURL(/\/invite\/accept/, { timeout: 20_000 })
+    await acceptPagePromise
     await page.waitForLoadState('load')
 
     await page.getByPlaceholder('Jane').fill('E2E')
