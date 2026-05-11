@@ -3,3 +3,4 @@ playwright-report/
 test-results/
 auth/.portal-state.json
 .env.test
+.vercel
