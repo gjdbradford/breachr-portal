@@ -84,6 +84,11 @@ describe('GET /api/permissions/roles', () => {
         const s = vi.fn().mockResolvedValue({ data: { tenant_id: 'tenant-abc', role: 'account_owner' } })
         return { select: vi.fn(() => ({ eq: vi.fn(() => ({ single: s })) })) }
       }
+      if (table === 'tenant_packages') {
+        return {
+          select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null }) })) })),
+        }
+      }
       return {
         select: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve({ data: [] })) })) })),
         upsert: vi.fn().mockResolvedValue({}),
@@ -116,10 +121,17 @@ describe('PATCH /api/permissions/roles', () => {
   it('returns 200 and upserts the row on valid input', async () => {
     setupOwner()
     const mockUpsert = vi.fn().mockResolvedValue({})
-    mockAdminFrom.mockImplementation(() => ({
-      select: vi.fn(() => ({ eq: vi.fn(() => ({ single: vi.fn().mockResolvedValue({ data: { tenant_id: 'tenant-abc', role: 'account_owner' } }) })) })),
-      upsert: mockUpsert,
-    }))
+    mockAdminFrom.mockImplementation((table: string) => {
+      if (table === 'tenant_packages') {
+        return {
+          select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null }) })) })),
+        }
+      }
+      return {
+        select: vi.fn(() => ({ eq: vi.fn(() => ({ single: vi.fn().mockResolvedValue({ data: { tenant_id: 'tenant-abc', role: 'account_owner' } }) })) })),
+        upsert: mockUpsert,
+      }
+    })
     vi.resetModules()
     const { PATCH } = await import('@/app/api/permissions/roles/route')
     const res = await PATCH(makeRequest('PATCH', {}, { role: 'admin', permission: 'reports.read.board', enabled: true }))
