@@ -138,3 +138,84 @@ describe('resolvePermissions()', () => {
     expect(result['team.invite']).toBe(true)
   })
 })
+
+describe('resolvePermissions() — account_owner with package', () => {
+  beforeEach(() => {
+    mockUserRow = { role: 'account_owner', permissions: {}, tenant_id: 'tenant-abc' }
+  })
+
+  it('account_owner with off module: all permissions for that module are false', async () => {
+    mockTenantPackage = {
+      package: {
+        package_modules: [{ module_slug: 'exports', access_mode: 'off', trial_days: null }],
+        package_role_ceilings: [],
+      },
+    }
+    const { resolvePermissions } = await import('@/lib/resolve-permissions')
+    const result = await resolvePermissions('user-123')
+    expect(result['exports.create']).toBe(false)
+    expect(result['exports.read']).toBe(false)
+    // Other modules without a config default to full
+    expect(result['scans.create']).toBe(true)
+  })
+
+  it('account_owner with paywalled module: all permissions false', async () => {
+    mockTenantPackage = {
+      package: {
+        package_modules: [{ module_slug: 'reports', access_mode: 'paywalled', trial_days: null }],
+        package_role_ceilings: [],
+      },
+    }
+    const { resolvePermissions } = await import('@/lib/resolve-permissions')
+    const result = await resolvePermissions('user-123')
+    expect(result['reports.read.scan']).toBe(false)
+    expect(result['reports.generate']).toBe(false)
+  })
+
+  it('account_owner with trial module not started: permissions true', async () => {
+    mockTenantPackage = {
+      package: {
+        package_modules: [{ module_slug: 'remediation', access_mode: 'trial', trial_days: 14 }],
+        package_role_ceilings: [],
+      },
+    }
+    mockTenantTrials = []  // trial not started
+    const { resolvePermissions } = await import('@/lib/resolve-permissions')
+    const result = await resolvePermissions('user-123')
+    expect(result['remediation.read']).toBe(true)
+    expect(result['remediation.update']).toBe(true)
+  })
+
+  it('account_owner with trial module expired: permissions false', async () => {
+    mockTenantPackage = {
+      package: {
+        package_modules: [{ module_slug: 'remediation', access_mode: 'trial', trial_days: 14 }],
+        package_role_ceilings: [],
+      },
+    }
+    mockTenantTrials = [{
+      module_slug: 'remediation',
+      expires_at: new Date(Date.now() - 1000).toISOString(),  // 1 second ago
+    }]
+    const { resolvePermissions } = await import('@/lib/resolve-permissions')
+    const result = await resolvePermissions('user-123')
+    expect(result['remediation.read']).toBe(false)
+    expect(result['remediation.update']).toBe(false)
+  })
+
+  it('account_owner with active trial: permissions true', async () => {
+    mockTenantPackage = {
+      package: {
+        package_modules: [{ module_slug: 'remediation', access_mode: 'trial', trial_days: 14 }],
+        package_role_ceilings: [],
+      },
+    }
+    mockTenantTrials = [{
+      module_slug: 'remediation',
+      expires_at: new Date(Date.now() + 86400000).toISOString(),  // tomorrow
+    }]
+    const { resolvePermissions } = await import('@/lib/resolve-permissions')
+    const result = await resolvePermissions('user-123')
+    expect(result['remediation.read']).toBe(true)
+  })
+})

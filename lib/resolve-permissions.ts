@@ -67,9 +67,26 @@ export async function resolvePermissions(supabaseUserId: string): Promise<Record
   if (!user) throw new Error('User not found')
 
   if (user.role === 'account_owner') {
-    return Object.fromEntries(
-      ALL_PERMISSIONS.map(p => [p, true])
-    ) as Record<Permission, boolean>
+    const pkgData = await fetchTenantPackageData(user.tenant_id, admin)
+    if (!pkgData) {
+      return Object.fromEntries(ALL_PERMISSIONS.map(p => [p, true])) as Record<Permission, boolean>
+    }
+    const result: Record<string, boolean> = {}
+    for (const perm of ALL_PERMISSIONS) {
+      const moduleSlug = perm.split('.')[0]
+      const mod = pkgData.moduleMap[moduleSlug]
+      if (!mod || mod.access_mode === 'full') {
+        result[perm] = true
+      } else if (mod.access_mode === 'off' || mod.access_mode === 'paywalled') {
+        result[perm] = false
+      } else if (mod.access_mode === 'trial') {
+        const trial = pkgData.trialMap[moduleSlug]
+        result[perm] = !trial || new Date(trial.expires_at) > new Date()
+      } else {
+        result[perm] = true
+      }
+    }
+    return result as Record<Permission, boolean>
   }
 
   const codeDefaults = user.role === 'admin' ? ADMIN_DEFAULTS : MEMBER_DEFAULTS
