@@ -45,3 +45,42 @@ jobs:
             e2e/playwright-report/
             e2e/test-results/
           retention-days: 7
+
+  # Note: Requires STAGING_WEBSITE_URL secret to be set in GitHub Actions settings
+  registration-flow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: e2e
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+        working-directory: e2e
+
+      - name: Run registration flow test
+        run: npx playwright test portal/flows/registration.spec.ts --project=registration-flow --reporter=list
+        working-directory: e2e
+        env:
+          PORTAL_URL:   ${{ secrets.STAGING_PORTAL_URL }}
+          WEBSITE_URL:  ${{ secrets.STAGING_WEBSITE_URL }}
+
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: registration-flow-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 7
