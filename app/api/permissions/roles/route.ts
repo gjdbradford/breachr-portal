@@ -10,6 +10,32 @@ function admin() {
   )
 }
 
+async function fetchRoleCeilings(
+  tenantId: string,
+  role: string
+): Promise<Record<string, boolean>> {
+  const db = admin()
+  const { data: pkgRow } = await db
+    .from('tenant_packages')
+    .select('package:packages(package_role_ceilings(role,permission,enabled))')
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+
+  const map: Record<string, boolean> = {}
+  if (pkgRow?.package) {
+    const pkg = pkgRow.package as any
+    for (const c of pkg.package_role_ceilings ?? []) {
+      if (c.role === role) map[c.permission] = c.enabled
+    }
+  }
+
+  const result: Record<string, boolean> = {}
+  for (const p of ALL_PERMISSIONS) {
+    result[p] = map[p] ?? true  // missing = no ceiling = allowed
+  }
+  return result
+}
+
 async function getOwnerProfile(supabaseUserId: string) {
   const db = admin()
   const { data } = await db
@@ -66,7 +92,8 @@ export async function GET(req: NextRequest) {
     permMap[p] = p in rowIndex ? rowIndex[p] : (codeDefaults[p as Permission] ?? false)
   }
 
-  return NextResponse.json({ role, permissions: permMap })
+  const ceilings = await fetchRoleCeilings(profile.tenant_id, role)
+  return NextResponse.json({ role, permissions: permMap, ceilings })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -89,6 +116,16 @@ export async function PATCH(req: NextRequest) {
   }
   if (typeof enabled !== 'boolean') {
     return NextResponse.json({ error: 'enabled must be boolean' }, { status: 400 })
+  }
+
+  if (enabled === true) {
+    const ceilings = await fetchRoleCeilings(profile.tenant_id, role)
+    if (ceilings[permission] === false) {
+      return NextResponse.json(
+        { error: `Permission '${permission}' is not available on your current package` },
+        { status: 403 }
+      )
+    }
   }
 
   await admin()
