@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import FindingStatusButton from '@/components/FindingStatusButton'
 import { formatFriendly } from '@/lib/format-date'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 
 const SEV_COLOR: Record<string, string> = {
   critical: '#ef4444',
@@ -29,7 +30,10 @@ export default async function FindingDetailPage({ params }: { params: Promise<{ 
   const { data: profile } = await supabase.from('users').select('tenant_id').eq('supabase_uid', user.id).single()
   if (!profile) redirect('/login')
 
-  const { data: tenantRow } = await supabase.from('tenants').select('timezone').eq('id', profile.tenant_id).single()
+  const [{ data: tenantRow }, resolved] = await Promise.all([
+    supabase.from('tenants').select('timezone').eq('id', profile.tenant_id).single(),
+    resolvePermissions(user.id),
+  ])
   const timezone = tenantRow?.timezone ?? 'UTC'
 
   const { data: finding } = await supabase
@@ -89,7 +93,7 @@ export default async function FindingDetailPage({ params }: { params: Promise<{ 
           </h1>
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <FindingStatusButton findingId={finding.id} currentStatus={finding.status} findingTitle={finding.title} />
+          <FindingStatusButton findingId={finding.id} currentStatus={finding.status} findingTitle={finding.title} canUpdate={resolved['findings.update']} />
           {finding.owasp_category && (
             <span style={{ fontSize: 11, color: '#64748b', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, padding: '3px 8px' }}>
               {finding.owasp_category}

@@ -41,12 +41,21 @@ const REASON_COPY: Record<string, { title: string; description: string; placehol
 }
 
 export default function FindingStatusButton({
-  findingId, currentStatus, findingTitle,
+  findingId, currentStatus, findingTitle, canUpdate = true,
 }: {
   findingId: string
   currentStatus: string
   findingTitle?: string
+  canUpdate?: boolean
 }) {
+  if (!canUpdate) {
+    const style = STATUS_STYLE[(STATUSES.includes(currentStatus as Status) ? currentStatus : 'open') as Status]
+    return (
+      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '5px 12px', borderRadius: 6, border: `1px solid ${style.border}`, background: style.bg, color: style.color }}>
+        {STATUS_LABEL[(currentStatus as Status) ?? 'open'] ?? currentStatus}
+      </span>
+    )
+  }
   const router = useRouter()
   const [status, setStatus] = useState<Status>(
     (STATUSES.includes(currentStatus as Status) ? currentStatus : 'open') as Status
