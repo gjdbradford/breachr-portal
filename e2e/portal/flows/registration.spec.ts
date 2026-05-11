@@ -7,7 +7,7 @@ const PASSWORD    = 'E2eBreachr@1!'
 test('account owner registers → onboards → invites admin → admin first login @flow', async ({ page, request }) => {
   test.setTimeout(180_000)
 
-  const runId      = Date.now()
+  const runId      = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
   const ownerEmail = `e2e-owner-${runId}@breachr.ai`
   const adminEmail = `e2e-admin-${runId}@breachr.ai`
 
@@ -65,8 +65,9 @@ test('account owner registers → onboards → invites admin → admin first log
     ).toBeVisible({ timeout: 5_000 })
 
     // ── 5. Onboarding step 3 — select DORA framework ─────────────────────
-    // The DORA button contains multiple child elements; filter by visible label text
-    await page.locator('button').filter({ hasText: /^DORA/ }).first().click()
+    // Each framework button contains a label <span> with the short name + a badge <span>.
+    // Filter by a span with exactly "DORA" to avoid matching the badge text.
+    await page.locator('button').filter({ has: page.locator('span', { hasText: /^DORA$/ }) }).click()
     await page.getByRole('button', { name: /save 1 framework/i }).click()
 
     await expect(
@@ -105,11 +106,10 @@ test('account owner registers → onboards → invites admin → admin first log
 
     // ── 9. Admin accepts invite ──────────────────────────────────────────
     await page.goto(action_link)
-
-    await expect(page, 'Should reach invite accept page').toHaveURL(
-      /\/invite\/accept/,
-      { timeout: 20_000 },
-    )
+    // action_link → /invite/confirm (token exchange + signout) → /invite/accept
+    await page.waitForURL(/\/invite\/confirm/, { timeout: 20_000 })
+    await page.waitForURL(/\/invite\/accept/, { timeout: 20_000 })
+    await page.waitForLoadState('load')
 
     await page.getByPlaceholder('Jane').fill('E2E')
     await page.getByPlaceholder('Smith').fill('Admin')
@@ -128,9 +128,11 @@ test('account owner registers → onboards → invites admin → admin first log
 
     await expect(page).not.toHaveURL(/\/login/)
 
+    // UserAvatarMenu renders the role label ("Admin") in a small div inside the
+    // header avatar button — always visible, no dropdown interaction needed.
     await expect(
-      page.getByText(/admin/i).first(),
-      'Admin role should be visible in portal header',
+      page.locator('header').getByText('Admin', { exact: true }),
+      'Admin role label should be visible in portal header avatar button',
     ).toBeVisible()
 
     await page.goto('/dashboard/findings')
