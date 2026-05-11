@@ -1,0 +1,149 @@
+import { test, expect } from '@playwright/test'
+
+const WEBSITE_URL = process.env.WEBSITE_URL || 'https://staging.breachr.ai'
+const PORTAL_URL  = process.env.PORTAL_URL  || 'https://staging.portal.breachr.ai'
+const PASSWORD    = 'E2eBreachr@1!'
+
+test('account owner registers → onboards → invites admin → admin first login @flow', async ({ page, request }) => {
+  test.setTimeout(180_000)
+
+  const runId      = Date.now()
+  const ownerEmail = `e2e-owner-${runId}@breachr.ai`
+  const adminEmail = `e2e-admin-${runId}@breachr.ai`
+
+  try {
+
+    // ── 1. Website registration form ────────────────────────────────────
+    await page.goto(WEBSITE_URL + '/#register')
+    await page.waitForLoadState('load')
+
+    await page.locator('#firstName').fill('E2E')
+    await page.locator('#lastName').fill('Owner')
+    await page.locator('#email').fill(ownerEmail)
+    await page.locator('#password').fill(PASSWORD)
+    await page.locator('#company').fill(`E2E Test Co ${runId}`)
+    await page.locator('#companySize').selectOption('1-10')
+    await page.locator('#industry').selectOption('other')
+    await page.getByRole('button', { name: /start free/i }).click()
+
+    await expect(
+      page.getByText('Account created'),
+      'Registration success message should appear',
+    ).toBeVisible({ timeout: 15_000 })
+
+    // ── 2. Portal login ──────────────────────────────────────────────────
+    await page.goto(PORTAL_URL + '/login')
+    await page.getByLabel(/email/i).fill(ownerEmail)
+    await page.getByLabel(/password/i).fill(PASSWORD)
+    await page.getByRole('button', { name: /sign in/i }).click()
+
+    await expect(page, 'New account should land on onboarding').toHaveURL(
+      /\/onboarding/,
+      { timeout: 15_000 },
+    )
+
+    // ── 3. Onboarding step 1 — country + mobile ──────────────────────────
+    await page.getByRole('button', { name: /select your country/i }).click()
+    await page.getByPlaceholder('Search country or dial code…').fill('Ireland')
+    await page.getByRole('button', { name: /Ireland/i }).first().click()
+
+    await page.getByPlaceholder('30 000 0000').fill('871234567')
+
+    await page.getByRole('button', { name: /continue/i }).click()
+
+    await expect(
+      page.getByText('ADD TARGET URLS'),
+      'Should advance to step 2',
+    ).toBeVisible({ timeout: 10_000 })
+
+    // ── 4. Onboarding step 2 — skip targets ─────────────────────────────
+    await page.getByRole('button', { name: /skip for now/i }).click()
+
+    await expect(
+      page.getByText('COMPLIANCE OBLIGATIONS'),
+      'Should advance to step 3',
+    ).toBeVisible({ timeout: 5_000 })
+
+    // ── 5. Onboarding step 3 — select DORA framework ─────────────────────
+    // The DORA button contains multiple child elements; filter by visible label text
+    await page.locator('button').filter({ hasText: /^DORA/ }).first().click()
+    await page.getByRole('button', { name: /save 1 framework/i }).click()
+
+    await expect(
+      page.getByText('INVITE YOUR SECURITY OFFICER'),
+      'Should advance to step 4',
+    ).toBeVisible({ timeout: 5_000 })
+
+    // ── 6. Onboarding step 4 — invite admin ──────────────────────────────
+    await page.getByRole('textbox', { name: /admin email/i })
+      .or(page.getByPlaceholder('security@yourcompany.com'))
+      .fill(adminEmail)
+
+    await page.getByRole('button', { name: /send invite/i }).click()
+
+    await expect(
+      page.getByText(/invite sent to/i),
+      'Invite sent confirmation should appear',
+    ).toBeVisible({ timeout: 15_000 })
+
+    // ── 7. Finish onboarding ─────────────────────────────────────────────
+    await page.getByRole('button', { name: /go to dashboard/i }).click()
+
+    await expect(page, 'Should land on dashboard after onboarding').toHaveURL(
+      /\/dashboard/,
+      { timeout: 15_000 },
+    )
+
+    // ── 8. Generate invite link (no UI equivalent) ───────────────────────
+    const inviteRes = await request.get(
+      `/api/test/generate-invite-link?email=${encodeURIComponent(adminEmail)}`,
+    )
+    expect(inviteRes.status(), 'generate-invite-link should return 200').toBe(200)
+
+    const { action_link } = await inviteRes.json() as { action_link: string }
+    expect(action_link, 'action_link should be a non-empty string').toBeTruthy()
+
+    // ── 9. Admin accepts invite ──────────────────────────────────────────
+    await page.goto(action_link)
+
+    await expect(page, 'Should reach invite accept page').toHaveURL(
+      /\/invite\/accept/,
+      { timeout: 20_000 },
+    )
+
+    await page.getByPlaceholder('Jane').fill('E2E')
+    await page.getByPlaceholder('Smith').fill('Admin')
+    await page.getByPlaceholder('At least 8 characters').fill(PASSWORD)
+    await page.getByPlaceholder('Repeat your password').fill(PASSWORD)
+    await page.getByRole('checkbox').check()
+    await page.getByRole('button', { name: /complete setup/i }).click()
+
+    await expect(page, 'Admin should land on dashboard after setup').toHaveURL(
+      /\/dashboard/,
+      { timeout: 15_000 },
+    )
+
+    // ── 10. Verify admin portal access ───────────────────────────────────
+    await page.waitForLoadState('load')
+
+    await expect(page).not.toHaveURL(/\/login/)
+
+    await expect(
+      page.getByText(/admin/i).first(),
+      'Admin role should be visible in portal header',
+    ).toBeVisible()
+
+    await page.goto('/dashboard/findings')
+    await page.waitForLoadState('load')
+    await expect(page, 'Admin should access findings').not.toHaveURL(/\/login/)
+
+    await page.goto('/dashboard/audit')
+    await page.waitForLoadState('load')
+    await expect(page, 'Admin should access audit trail').not.toHaveURL(/\/login/)
+
+  } finally {
+    await request.delete('/api/test/cleanup-tenant', {
+      data: { ownerEmail },
+    }).catch(err => console.warn('⚠ Cleanup failed:', err))
+  }
+})
