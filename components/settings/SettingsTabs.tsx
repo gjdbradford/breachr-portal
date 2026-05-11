@@ -21,17 +21,19 @@ export default function SettingsTabs({
   tenantId,
   currentUserId,
   canInvite,
+  showTeam = true,
 }: {
   tenant: TenantProfile & { compliance_frameworks: string[] }
   user: UserProfile
   tenantId: string
   currentUserId: string
   canInvite?: boolean
+  showTeam?: boolean
 }) {
   const isOwner = user.role === 'account_owner'
   const tabs: Tab[] = isOwner
     ? ['profile', 'compliance', 'team', 'permissions']
-    : ['profile', 'compliance', 'team']
+    : (['profile', 'compliance', showTeam ? 'team' : null] as Array<Tab | null>).filter((t): t is Tab => t !== null)
 
   const [activeTab, setActiveTab] = useState<Tab>('profile')
 

@@ -76,6 +76,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
           initialActiveScans={activeScansCount ?? 0}
           initialUnackedAssets={unackedAssetsCount ?? 0}
           showAudit={resolved['audit.read']}
+          showScans={resolved['scans.read']}
+          showFindings={resolved['findings.read']}
+          showInventory={resolved['assets.read']}
         />
         <main className="portal-main">
           {children}

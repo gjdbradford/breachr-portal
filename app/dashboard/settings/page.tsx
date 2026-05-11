@@ -41,6 +41,7 @@ export default async function SettingsPage() {
         tenantId={profile.tenant_id}
         currentUserId={user.id}
         canInvite={resolved['team.invite']}
+        showTeam={resolved['team.read']}
       />
     </div>
   )

@@ -56,6 +56,9 @@ export default async function InventoryPage({
     supabase.from('tenants').select('timezone').eq('id', profile.tenant_id).single(),
     resolvePermissions(user.id),
   ])
+
+  if (!resolved['assets.read']) redirect('/dashboard')
+
   const timezone = tenantRow?.timezone ?? 'UTC'
 
   const assetIds = (assets ?? []).map(a => a.id)

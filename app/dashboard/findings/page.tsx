@@ -32,6 +32,7 @@ export default async function FindingsPage({
 
   const tenantId = profile.tenant_id
   const resolved = await resolvePermissions(user.id)
+  if (!resolved['findings.read']) redirect('/dashboard')
   const canExport = resolved['exports.create']
   const canUpdate = resolved['findings.update']
 

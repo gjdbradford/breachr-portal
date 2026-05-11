@@ -36,6 +36,9 @@ export default function DashboardNav({
   initialActiveScans = 0,
   initialUnackedAssets = 0,
   showAudit = true,
+  showScans = true,
+  showFindings = true,
+  showInventory = true,
 }: {
   tenantName: string
   plan?: string
@@ -48,6 +51,9 @@ export default function DashboardNav({
   initialActiveScans?: number
   initialUnackedAssets?: number
   showAudit?: boolean
+  showScans?: boolean
+  showFindings?: boolean
+  showInventory?: boolean
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -160,7 +166,13 @@ export default function DashboardNav({
       )}
 
       <nav style={{ flex: 1, padding: '8px 4px', overflow: 'visible' }}>
-        {links.filter(({ href }) => href !== '/dashboard/audit' || showAudit).map(({ href, label, icon }) => {
+        {links.filter(({ href }) => {
+          if (href === '/dashboard/audit')     return showAudit
+          if (href === '/dashboard/scans')     return showScans
+          if (href === '/dashboard/findings')  return showFindings
+          if (href === '/dashboard/inventory') return showInventory
+          return true
+        }).map(({ href, label, icon }) => {
           const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
           const showScansBadge = href === '/dashboard/scans' && activeScans > 0
           const showInvBadge   = href === '/dashboard/inventory' && unackedAssets > 0

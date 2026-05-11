@@ -63,6 +63,8 @@ export default async function ScansPage() {
     resolvePermissions(user.id),
   ])
 
+  if (!resolved['scans.read']) redirect('/dashboard')
+
   // Build findings count map
   const countByScan: Record<string, { total: number; critical: number; high: number; medium: number; open: number }> = {}
   for (const f of findingCounts ?? []) {
