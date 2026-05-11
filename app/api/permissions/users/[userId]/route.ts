@@ -117,6 +117,28 @@ export async function PATCH(
     return NextResponse.json({ error: 'enabled must be boolean' }, { status: 400 })
   }
 
+  if (enabled === true) {
+    const db = admin()
+    const { data: pkgRow } = await db
+      .from('tenant_packages')
+      .select('package:packages(package_role_ceilings(role,permission,enabled))')
+      .eq('tenant_id', profile.tenant_id)
+      .maybeSingle()
+
+    if (pkgRow?.package) {
+      const pkg = pkgRow.package as any
+      const ceiling = (pkg.package_role_ceilings ?? []).find(
+        (c: any) => c.role === target.role && c.permission === permission
+      )
+      if (ceiling && ceiling.enabled === false) {
+        return NextResponse.json(
+          { error: `Permission '${permission}' is not available on your current package` },
+          { status: 403 }
+        )
+      }
+    }
+  }
+
   const current = flattenJsonbOverrides(target.permissions)
   const updated = { ...current, [permission]: enabled }
 

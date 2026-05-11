@@ -139,6 +139,11 @@ describe('PATCH /api/permissions/users/[userId]', () => {
           update: mockUpdate,
         }
       }
+      if (table === 'tenant_packages') {
+        return {
+          select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null }) })) })),
+        }
+      }
       return {}
     })
     vi.resetModules()
