@@ -219,3 +219,44 @@ describe('resolvePermissions() — account_owner with package', () => {
     expect(result['remediation.read']).toBe(true)
   })
 })
+
+describe('resolvePermissions() — admin with package gates and ceilings', () => {
+  beforeEach(() => {
+    mockUserRow = { role: 'admin', permissions: {}, tenant_id: 'tenant-abc' }
+    mockRoleRows = [{ permission: 'exports.create', enabled: true }]
+  })
+
+  it('admin with off module: forces false regardless of role_permissions', async () => {
+    mockTenantPackage = {
+      package: {
+        package_modules: [{ module_slug: 'exports', access_mode: 'off', trial_days: null }],
+        package_role_ceilings: [],
+      },
+    }
+    const { resolvePermissions } = await import('@/lib/resolve-permissions')
+    const result = await resolvePermissions('user-123')
+    expect(result['exports.create']).toBe(false)  // role_permissions says true, module gate wins
+  })
+
+  it('admin with ceiling=false: forces false even if role_permissions is true', async () => {
+    mockTenantPackage = {
+      package: {
+        package_modules: [],
+        package_role_ceilings: [
+          { role: 'admin', permission: 'exports.create', enabled: false },
+        ],
+      },
+    }
+    const { resolvePermissions } = await import('@/lib/resolve-permissions')
+    const result = await resolvePermissions('user-123')
+    expect(result['exports.create']).toBe(false)  // ceiling clamps
+  })
+
+  it('admin with no package: falls back to existing behaviour', async () => {
+    mockTenantPackage = null
+    mockRoleRows = [{ permission: 'scans.create', enabled: true }]
+    const { resolvePermissions } = await import('@/lib/resolve-permissions')
+    const result = await resolvePermissions('user-123')
+    expect(result['scans.create']).toBe(true)  // no package = no gates
+  })
+})

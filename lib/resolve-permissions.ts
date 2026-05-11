@@ -143,5 +143,28 @@ export async function resolvePermissions(supabaseUserId: string): Promise<Record
     }
   }
 
+  const pkgData = await fetchTenantPackageData(user.tenant_id, admin)
+  if (pkgData) {
+    for (const perm of ALL_PERMISSIONS) {
+      const moduleSlug = perm.split('.')[0]
+      const mod = pkgData.moduleMap[moduleSlug]
+      if (mod) {
+        if (mod.access_mode === 'off' || mod.access_mode === 'paywalled') {
+          result[perm] = false
+          continue
+        }
+        if (mod.access_mode === 'trial') {
+          const trial = pkgData.trialMap[moduleSlug]
+          if (trial && new Date(trial.expires_at) <= new Date()) {
+            result[perm] = false
+            continue
+          }
+        }
+      }
+      const ceiling = pkgData.ceilingMap[`${user.role}:${perm}`]
+      if (ceiling === false) result[perm] = false
+    }
+  }
+
   return result as Record<Permission, boolean>
 }
