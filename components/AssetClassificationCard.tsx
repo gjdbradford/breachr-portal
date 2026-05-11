@@ -43,14 +43,16 @@ export default function AssetClassificationCard({
   assetId,
   initial,
   userRole,
+  canEdit: canEditProp,
   timezone = 'UTC',
 }: {
   assetId: string
   initial: Classification
   userRole: string
+  canEdit?: boolean
   timezone?: string
 }) {
-  const canEdit = ['account_owner', 'admin'].includes(userRole)
+  const canEdit = canEditProp ?? ['account_owner', 'admin'].includes(userRole)
   const [data, setData]     = useState<Classification>(initial)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft]   = useState<Classification>(initial)

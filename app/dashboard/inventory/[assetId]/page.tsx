@@ -4,6 +4,7 @@ import Link from 'next/link'
 import AcknowledgeOnMount from '@/components/AcknowledgeOnMount'
 import AssetClassificationCard from '@/components/AssetClassificationCard'
 import { formatFriendly } from '@/lib/format-date'
+import { resolvePermissions } from '@/lib/resolve-permissions'
 
 const SEVERITY_COLORS: Record<string, string> = {
   critical: '#ef4444', high: '#f97316', medium: '#f59e0b', low: '#22c55e',
@@ -29,6 +30,7 @@ export default async function AssetDetailPage({
     { data: asset },
     { data: ports },
     { data: vulns },
+    resolved,
   ] = await Promise.all([
     supabase
       .from('assets')
@@ -46,6 +48,7 @@ export default async function AssetDetailPage({
       .select('cve_id, severity, cvss_score, title, last_checked')
       .eq('asset_id', assetId)
       .order('cvss_score', { ascending: false }),
+    resolvePermissions(user.id),
   ])
 
   if (!asset) notFound()
@@ -131,6 +134,7 @@ export default async function AssetDetailPage({
       <AssetClassificationCard
         assetId={asset.id}
         userRole={profile.role ?? 'member'}
+        canEdit={resolved['assets.update']}
         timezone={timezone}
         initial={{
           criticality:          asset.criticality          ?? null,
