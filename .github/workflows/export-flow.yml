@@ -46,7 +46,7 @@ jobs:
             e2e/test-results/
           retention-days: 7
 
-  # Note: Requires STAGING_WEBSITE_URL secret to be set in GitHub Actions settings
+  # Note: Requires STAGING_WEBSITE_URL and E2E_TEST_SECRET secrets to be set in GitHub Actions settings
   registration-flow:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -72,8 +72,9 @@ jobs:
         run: npx playwright test portal/flows/registration.spec.ts --project=registration-flow --reporter=list
         working-directory: e2e
         env:
-          PORTAL_URL:   ${{ secrets.STAGING_PORTAL_URL }}
-          WEBSITE_URL:  ${{ secrets.STAGING_WEBSITE_URL }}
+          PORTAL_URL:         ${{ secrets.STAGING_PORTAL_URL }}
+          WEBSITE_URL:        ${{ secrets.STAGING_WEBSITE_URL }}
+          E2E_TEST_SECRET:    ${{ secrets.E2E_TEST_SECRET }}
 
       - name: Upload report on failure
         if: failure()

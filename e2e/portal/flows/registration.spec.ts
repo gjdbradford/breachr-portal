@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test'
 
-const WEBSITE_URL = process.env.WEBSITE_URL || 'https://staging.breachr.ai'
-const PORTAL_URL  = process.env.PORTAL_URL  || 'https://staging.portal.breachr.ai'
-const PASSWORD    = 'E2eBreachr@1!'
+const WEBSITE_URL     = process.env.WEBSITE_URL     || 'https://staging.breachr.ai'
+const PORTAL_URL      = process.env.PORTAL_URL      || 'https://staging.portal.breachr.ai'
+const PASSWORD        = 'E2eBreachr@1!'
+const E2E_TEST_SECRET = process.env.E2E_TEST_SECRET || ''
 
 test('account owner registers → onboards → invites admin → admin first login @flow', async ({ page, request }) => {
   test.setTimeout(180_000)
@@ -98,6 +99,7 @@ test('account owner registers → onboards → invites admin → admin first log
     // ── 8. Generate invite link (no UI equivalent) ───────────────────────
     const inviteRes = await request.get(
       `/api/test/generate-invite-link?email=${encodeURIComponent(adminEmail)}`,
+      { headers: { 'x-test-secret': E2E_TEST_SECRET } },
     )
     expect(inviteRes.status(), 'generate-invite-link should return 200').toBe(200)
 
@@ -147,6 +149,7 @@ test('account owner registers → onboards → invites admin → admin first log
   } finally {
     await request.delete('/api/test/cleanup-tenant', {
       data: { ownerEmail },
+      headers: { 'x-test-secret': E2E_TEST_SECRET },
     }).catch(err => console.warn('⚠ Cleanup failed:', err))
   }
 })

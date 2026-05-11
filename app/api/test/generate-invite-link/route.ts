@@ -6,8 +6,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.E2E_TEST_SECRET) {
     return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
+  }
+
+  const secret = req.headers.get('x-test-secret')
+  if (!secret || secret !== process.env.E2E_TEST_SECRET) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const { searchParams } = new URL(req.url)
