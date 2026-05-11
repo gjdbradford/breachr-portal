@@ -7,7 +7,7 @@ dotenv.config({ path: path.join(__dirname, '.env.test') })
 const PORTAL_URL = process.env.PORTAL_URL || 'https://staging.portal.breachr.ai'
 const WEBSITE_URL = process.env.WEBSITE_URL || 'https://staging.breachr.ai'
 
-export { WEBSITE_URL }
+export { PORTAL_URL, WEBSITE_URL }
 
 export default defineConfig({
   testDir: '.',
@@ -32,7 +32,8 @@ export default defineConfig({
     },
     {
       name: 'portal',
-      testMatch: ['portal/**/*.spec.ts', '!portal/flows/registration.spec.ts'],
+      testMatch: 'portal/**/*.spec.ts',
+      testIgnore: 'portal/flows/registration.spec.ts',
       dependencies: ['portal-setup'],
       use: {
         baseURL: PORTAL_URL,
