@@ -6,9 +6,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
+  }
+
   const { searchParams } = new URL(req.url)
   const email = searchParams.get('email')
   if (!email) return NextResponse.json({ error: 'Missing email param' }, { status: 400 })
+  if (!email.includes('@')) {
+    return NextResponse.json({ error: 'Invalid email param' }, { status: 400 })
+  }
 
   const origin = `${req.nextUrl.protocol}//${req.nextUrl.host}`
 
