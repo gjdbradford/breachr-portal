@@ -8,6 +8,8 @@ let mockUserRow: Record<string, unknown> | null = {
   tenant_id: 'tenant-abc',
 }
 let mockRoleRows: Array<{ permission: string; enabled: boolean }> = []
+let mockTenantPackage: any = null
+let mockTenantTrials: Array<{ module_slug: string; expires_at: string }> = []
 const mockUpsert = vi.fn().mockResolvedValue({})
 
 vi.mock('@supabase/supabase-js', () => ({
@@ -30,6 +32,22 @@ vi.mock('@supabase/supabase-js', () => ({
           upsert: mockUpsert,
         }
       }
+      if (table === 'tenant_packages') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () => Promise.resolve({ data: mockTenantPackage }),
+            }),
+          }),
+        }
+      }
+      if (table === 'tenant_module_trials') {
+        return {
+          select: () => ({
+            eq: () => Promise.resolve({ data: mockTenantTrials }),
+          }),
+        }
+      }
       return {}
     },
   })),
@@ -40,6 +58,8 @@ beforeEach(() => {
   vi.resetModules()
   mockUserRow = { role: 'admin', permissions: {}, tenant_id: 'tenant-abc' }
   mockRoleRows = []
+  mockTenantPackage = null
+  mockTenantTrials = []
   process.env.NEXT_PUBLIC_SUPABASE_URL  = 'https://test.supabase.co'
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key'
 })
@@ -106,5 +126,15 @@ describe('resolvePermissions()', () => {
     mockUserRow = null
     const { resolvePermissions } = await import('@/lib/resolve-permissions')
     await expect(resolvePermissions('ghost')).rejects.toThrow('User not found')
+  })
+
+  it('account_owner with no package returns all-true (no regression)', async () => {
+    mockUserRow = { role: 'account_owner', permissions: {}, tenant_id: 'tenant-abc' }
+    mockTenantPackage = null
+    const { resolvePermissions } = await import('@/lib/resolve-permissions')
+    const result = await resolvePermissions('user-123')
+    expect(result['scans.create']).toBe(true)
+    expect(result['exports.create']).toBe(true)
+    expect(result['team.invite']).toBe(true)
   })
 })

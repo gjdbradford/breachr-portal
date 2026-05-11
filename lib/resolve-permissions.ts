@@ -1,6 +1,53 @@
 import { createClient } from '@supabase/supabase-js'
 import { ALL_PERMISSIONS, ADMIN_DEFAULTS, MEMBER_DEFAULTS, type Permission } from './permissions'
 
+type ModuleConfig = { access_mode: string; trial_days: number | null }
+type TrialState = { expires_at: string }
+type TenantPackageData = {
+  moduleMap: Record<string, ModuleConfig>
+  ceilingMap: Record<string, boolean>    // key: `${role}:${permission}`
+  trialMap: Record<string, TrialState>   // key: module_slug
+}
+
+async function fetchTenantPackageData(
+  tenantId: string,
+  admin: ReturnType<typeof createClient>
+): Promise<TenantPackageData | null> {
+  const { data: pkgRow } = await admin
+    .from('tenant_packages')
+    .select('package:packages(package_modules(module_slug,access_mode,trial_days),package_role_ceilings(role,permission,enabled))')
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+
+  if (!pkgRow?.package) return null
+
+  const pkg = pkgRow.package as any
+
+  const moduleMap: Record<string, ModuleConfig> = {}
+  for (const m of pkg.package_modules ?? []) {
+    moduleMap[m.module_slug] = { access_mode: m.access_mode, trial_days: m.trial_days }
+  }
+
+  const ceilingMap: Record<string, boolean> = {}
+  for (const c of pkg.package_role_ceilings ?? []) {
+    ceilingMap[`${c.role}:${c.permission}`] = c.enabled
+  }
+
+  const trialMap: Record<string, TrialState> = {}
+  const hasTrialModules = Object.values(moduleMap).some(m => m.access_mode === 'trial')
+  if (hasTrialModules) {
+    const { data: trials } = await admin
+      .from('tenant_module_trials')
+      .select('module_slug,expires_at')
+      .eq('tenant_id', tenantId)
+    for (const t of trials ?? []) {
+      trialMap[t.module_slug] = { expires_at: t.expires_at }
+    }
+  }
+
+  return { moduleMap, ceilingMap, trialMap }
+}
+
 function makeAdmin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
