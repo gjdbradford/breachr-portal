@@ -26,32 +26,26 @@ export async function DELETE(req: NextRequest) {
 
   try {
     // Find the tenant via the owner's users row
-    const { data: ownerRow } = await admin
+    const { data: ownerRow, error: ownerErr } = await admin
       .from('users')
       .select('tenant_id, supabase_uid')
       .eq('email', trimmedEmail)
       .eq('role', 'account_owner')
       .maybeSingle()
+    if (ownerErr) throw new Error(`owner lookup failed: ${ownerErr.message}`)
 
     if (!ownerRow) return NextResponse.json({ ok: true }) // already cleaned up
 
     const tenantId = ownerRow.tenant_id
 
     // Collect all supabase_uid values before deleting users rows
-    const { data: tenantUsers } = await admin
+    const { data: tenantUsers, error: tenantUsersErr } = await admin
       .from('users')
       .select('supabase_uid')
       .eq('tenant_id', tenantId)
+    if (tenantUsersErr) throw new Error(`tenantUsers lookup failed: ${tenantUsersErr.message}`)
 
     const uids = (tenantUsers ?? []).map(u => u.supabase_uid as string).filter(Boolean)
-
-    // Collect scan IDs for this tenant (needed to delete findings/compliance_reports by scan_id)
-    const { data: tenantScans } = await admin
-      .from('scans')
-      .select('id')
-      .eq('tenant_id', tenantId)
-
-    const scanIds = (tenantScans ?? []).map(s => s.id as string).filter(Boolean)
 
     // Delete in FK-safe order: most-dependent tables first
 
@@ -96,16 +90,15 @@ export async function DELETE(req: NextRequest) {
     if (e10) throw new Error(`tenant_module_trials delete failed: ${e10.message}`)
 
     // 11. compliance_mappings — FK is on finding_id, delete before findings
-    if (scanIds.length > 0) {
-      const { data: tenantFindings } = await admin
-        .from('findings')
-        .select('id')
-        .eq('tenant_id', tenantId)
-      const findingIds = (tenantFindings ?? []).map(f => f.id as string).filter(Boolean)
-      if (findingIds.length > 0) {
-        const { error: e11 } = await admin.from('compliance_mappings').delete().in('finding_id', findingIds)
-        if (e11) throw new Error(`compliance_mappings delete failed: ${e11.message}`)
-      }
+    const { data: tenantFindings, error: tenantFindingsErr } = await admin
+      .from('findings')
+      .select('id')
+      .eq('tenant_id', tenantId)
+    if (tenantFindingsErr) throw new Error(`tenantFindings lookup failed: ${tenantFindingsErr.message}`)
+    const findingIds = (tenantFindings ?? []).map(f => f.id as string).filter(Boolean)
+    if (findingIds.length > 0) {
+      const { error: e11 } = await admin.from('compliance_mappings').delete().in('finding_id', findingIds)
+      if (e11) throw new Error(`compliance_mappings delete failed: ${e11.message}`)
     }
 
     // 12. findings (tenant_id, ON DELETE CASCADE)
@@ -116,11 +109,31 @@ export async function DELETE(req: NextRequest) {
     const { error: e13 } = await admin.from('compliance_reports').delete().eq('tenant_id', tenantId)
     if (e13) throw new Error(`compliance_reports delete failed: ${e13.message}`)
 
-    // 14. scans (tenant_id, ON DELETE CASCADE)
+    // 14. scans — scans references attack_surfaces — delete child before parent
     const { error: e14 } = await admin.from('scans').delete().eq('tenant_id', tenantId)
     if (e14) throw new Error(`scans delete failed: ${e14.message}`)
 
-    // 15. engagements (tenant_id, ON DELETE CASCADE)
+    // 15a. engagement child tables — delete before engagements (FK: engagement_id REFERENCES engagements(id))
+    const { data: engagements, error: engErr } = await admin
+      .from('engagements')
+      .select('id')
+      .eq('tenant_id', tenantId)
+    if (engErr) throw new Error(`engagements lookup failed: ${engErr.message}`)
+
+    const engagementIds = (engagements ?? []).map(e => e.id as string).filter(Boolean)
+
+    if (engagementIds.length > 0) {
+      const { error: epErr } = await admin.from('engagement_phases').delete().in('engagement_id', engagementIds)
+      if (epErr) throw new Error(`engagement_phases delete failed: ${epErr.message}`)
+
+      const { error: etErr } = await admin.from('engagement_team').delete().in('engagement_id', engagementIds)
+      if (etErr) throw new Error(`engagement_team delete failed: ${etErr.message}`)
+
+      const { error: efErr } = await admin.from('engagement_findings').delete().in('engagement_id', engagementIds)
+      if (efErr) throw new Error(`engagement_findings delete failed: ${efErr.message}`)
+    }
+
+    // 15b. engagements (tenant_id, ON DELETE CASCADE)
     const { error: e15 } = await admin.from('engagements').delete().eq('tenant_id', tenantId)
     if (e15) throw new Error(`engagements delete failed: ${e15.message}`)
 
@@ -140,7 +153,20 @@ export async function DELETE(req: NextRequest) {
     const { error: e19 } = await admin.from('cancellations').delete().eq('tenant_id', tenantId)
     if (e19) throw new Error(`cancellations delete failed: ${e19.message}`)
 
-    // 20. deletion_requests (tenant_id, ON DELETE SET NULL — delete explicitly for clean test state)
+    // 20a. deletion_audit_log has no tenant_id — delete via deletion_request IDs before deletion_requests
+    const { data: delReqs, error: drLookupErr } = await admin
+      .from('deletion_requests')
+      .select('id')
+      .eq('tenant_id', tenantId)
+    if (drLookupErr) throw new Error(`deletion_requests lookup failed: ${drLookupErr.message}`)
+
+    const delReqIds = (delReqs ?? []).map(r => r.id as string).filter(Boolean)
+    if (delReqIds.length > 0) {
+      const { error: dalErr } = await admin.from('deletion_audit_log').delete().in('deletion_request_id', delReqIds)
+      if (dalErr) throw new Error(`deletion_audit_log delete failed: ${dalErr.message}`)
+    }
+
+    // 20b. deletion_requests (tenant_id, ON DELETE SET NULL — delete explicitly for clean test state)
     const { error: e20 } = await admin.from('deletion_requests').delete().eq('tenant_id', tenantId)
     if (e20) throw new Error(`deletion_requests delete failed: ${e20.message}`)
 
