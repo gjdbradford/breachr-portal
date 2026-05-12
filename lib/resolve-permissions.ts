@@ -11,17 +11,18 @@ type TenantPackageData = {
 
 async function fetchTenantPackageData(
   tenantId: string,
-  admin: ReturnType<typeof createClient>
+  admin: any
 ): Promise<TenantPackageData | null> {
-  const { data: pkgRow } = await admin
+  const { data } = await admin
     .from('tenant_packages')
     .select('package:packages(package_modules(module_slug,access_mode,trial_days),package_role_ceilings(role,permission,enabled))')
     .eq('tenant_id', tenantId)
     .maybeSingle()
+  const pkgRow = data as { package: any } | null
 
   if (!pkgRow?.package) return null
 
-  const pkg = pkgRow.package as any
+  const pkg = pkgRow.package
 
   const moduleMap: Record<string, ModuleConfig> = {}
   for (const m of pkg.package_modules ?? []) {
@@ -36,10 +37,11 @@ async function fetchTenantPackageData(
   const trialMap: Record<string, TrialState> = {}
   const hasTrialModules = Object.values(moduleMap).some(m => m.access_mode === 'trial')
   if (hasTrialModules) {
-    const { data: trials } = await admin
+    const { data: trialsData } = await admin
       .from('tenant_module_trials')
       .select('module_slug,expires_at')
       .eq('tenant_id', tenantId)
+    const trials = trialsData as { module_slug: string; expires_at: string }[] | null
     for (const t of trials ?? []) {
       trialMap[t.module_slug] = { expires_at: t.expires_at }
     }
