@@ -5,14 +5,16 @@ import ProfileTab, { type TenantProfile, type UserProfile } from './ProfileTab'
 import ComplianceTab from './ComplianceTab'
 import TeamTab from './TeamTab'
 import PermissionsTab from './PermissionsTab'
+import SubscriptionTab, { type SubscriptionData } from './SubscriptionTab'
 
-type Tab = 'profile' | 'compliance' | 'team' | 'permissions'
+type Tab = 'profile' | 'compliance' | 'team' | 'permissions' | 'subscription'
 
 const TAB_LABELS: Record<Tab, string> = {
-  profile:     'Profile',
-  compliance:  'Compliance',
-  team:        'Team',
-  permissions: 'Permissions',
+  profile:      'Profile',
+  compliance:   'Compliance',
+  team:         'Team',
+  permissions:  'Permissions',
+  subscription: 'Subscription',
 }
 
 export default function SettingsTabs({
@@ -22,6 +24,7 @@ export default function SettingsTabs({
   currentUserId,
   canInvite,
   showTeam = true,
+  subscription,
 }: {
   tenant: TenantProfile & { compliance_frameworks: string[] }
   user: UserProfile
@@ -29,11 +32,12 @@ export default function SettingsTabs({
   currentUserId: string
   canInvite?: boolean
   showTeam?: boolean
+  subscription: SubscriptionData
 }) {
   const isOwner = user.role === 'account_owner'
   const tabs: Tab[] = isOwner
-    ? ['profile', 'compliance', 'team', 'permissions']
-    : (['profile', 'compliance', showTeam ? 'team' : null] as Array<Tab | null>).filter((t): t is Tab => t !== null)
+    ? ['profile', 'compliance', 'team', 'permissions', 'subscription']
+    : (['profile', 'compliance', showTeam ? 'team' : null, 'subscription'] as Array<Tab | null>).filter((t): t is Tab => t !== null)
 
   const [activeTab, setActiveTab] = useState<Tab>('profile')
 
@@ -61,6 +65,7 @@ export default function SettingsTabs({
       {activeTab === 'compliance'  && <ComplianceTab frameworks={tenant.compliance_frameworks} tenantId={tenantId} />}
       {activeTab === 'team'        && <TeamTab currentUserId={currentUserId} currentUserRole={user.role} canInvite={canInvite} timezone={tenant.timezone ?? 'UTC'} />}
       {activeTab === 'permissions' && isOwner && <PermissionsTab />}
+      {activeTab === 'subscription' && <SubscriptionTab data={subscription} />}
     </div>
   )
 }
