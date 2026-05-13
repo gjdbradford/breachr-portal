@@ -3,7 +3,7 @@
 export type SubscriptionData = {
   packageName:  string
   packageSlug:  string
-  priceMonthly: number
+  priceMonthly: number | null
   scansLimit:   number | null
   tokensLimit:  number | null
   targetsLimit: number | null
@@ -24,14 +24,19 @@ function fmtLimit(n: number | null) {
   return n === null ? 'Unlimited' : n.toLocaleString()
 }
 
-function fmtPrice(slug: string, price: number) {
+function fmtPrice(slug: string, price: number | null) {
   if (slug === 'freemium') return 'Free'
-  if (slug === 'enterprise') return 'Custom pricing'
+  if (slug === 'enterprise' || price === null) return 'Custom pricing'
   return `€${price.toLocaleString()}/month`
 }
 
 export default function SubscriptionTab({ data }: { data: SubscriptionData }) {
   const cta = UPGRADE_CTA[data.packageSlug] ?? UPGRADE_CTA.enterprise
+  const metrics: [string, string][] = [
+    ['Scans / month', fmtLimit(data.scansLimit)],
+    ['Scan targets',  fmtLimit(data.targetsLimit)],
+    ['AI tokens',     fmtLimit(data.tokensLimit)],
+  ]
 
   return (
     <div style={{ maxWidth: 520 }}>
@@ -54,11 +59,7 @@ export default function SubscriptionTab({ data }: { data: SubscriptionData }) {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-          {([
-            ['Scans / month', fmtLimit(data.scansLimit)],
-            ['Scan targets',  fmtLimit(data.targetsLimit)],
-            ['AI tokens',     fmtLimit(data.tokensLimit)],
-          ] as [string, string][]).map(([label, value]) => (
+          {metrics.map(([label, value]) => (
             <div key={label} style={{ background: 'rgba(0,0,0,0.2)', borderRadius: 6, padding: '10px 12px' }}>
               <p style={{ margin: '0 0 4px', fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</p>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#94a3b8' }}>{value}</p>
