@@ -18,6 +18,8 @@ export default function InviteConfirmPage() {
     const accessToken  = hashParams.get('access_token')
     const refreshToken = hashParams.get('refresh_token')
     const code         = searchParams.get('code')
+    const inviteId     = searchParams.get('invite_id')
+    const acceptPath   = '/invite/accept' + (inviteId ? `?invite_id=${inviteId}` : '')
 
     // Sign out any existing session globally before processing invite
     supabase.auth.signOut({ scope: 'global' }).then(() => {
@@ -31,7 +33,7 @@ export default function InviteConfirmPage() {
               setErrMsg(error?.message ?? 'Could not verify invite. The link may have expired.')
               setStep('error')
             } else {
-              window.location.href = '/invite/accept'
+              window.location.href = acceptPath
             }
           })
       } else if (code) {
@@ -42,7 +44,7 @@ export default function InviteConfirmPage() {
               setErrMsg(error?.message ?? 'Could not verify invite. The link may have expired.')
               setStep('error')
             } else {
-              window.location.href = '/invite/accept'
+              window.location.href = acceptPath
             }
           })
       } else {

@@ -86,12 +86,7 @@ export default function TeamTab({
       body: JSON.stringify({ email: inviteEmail }),
     })
     if (res.ok) {
-      const data = await res.json().catch(() => ({}))
-      if (data.emailSent === false) {
-        setSuccess(`${inviteEmail} already has a Breachr account. They'll see the invitation on their dashboard next time they log in.`)
-      } else {
-        setSuccess(`Invitation email sent to ${inviteEmail}`)
-      }
+      setSuccess(`Invitation email sent to ${inviteEmail}`)
       setInviteEmail('')
       setShowInviteForm(false)
       load()

@@ -21,11 +21,28 @@ export async function POST(req: NextRequest) {
     .select('id, tenant_id')
     .eq('supabase_uid', user.id)
 
-  // tenantId may come from Supabase user_metadata (email-link flow for new users)
-  // or from the request body (in-app accept flow for existing users).
-  const tenantId = (user.user_metadata?.invited_tenant_id as string | undefined)
-    ?? (typeof body.tenant_id === 'string' ? body.tenant_id : undefined)
-  const role = (user.user_metadata?.role as string | undefined) ?? 'admin'
+  // Resolve tenantId: prefer invite_id lookup (most specific), then fall back to
+  // Supabase user_metadata (legacy inviteUserByEmail flow) or body.tenant_id.
+  let tenantId: string | undefined
+  let role = 'admin'
+
+  if (typeof body.invite_id === 'string') {
+    const { data: inv } = await admin
+      .from('invitations')
+      .select('tenant_id, role')
+      .eq('id', body.invite_id)
+      .eq('email', user.email!)
+      .is('accepted_at', null)
+      .gt('expires_at', new Date().toISOString())
+      .single()
+    if (inv) { tenantId = inv.tenant_id; role = inv.role }
+  }
+
+  if (!tenantId) {
+    tenantId = (user.user_metadata?.invited_tenant_id as string | undefined)
+      ?? (typeof body.tenant_id === 'string' ? body.tenant_id : undefined)
+    role = (user.user_metadata?.role as string | undefined) ?? 'admin'
+  }
 
   // Determine if the user already belongs to this specific tenant
   const alreadyInTenant = existingRows?.some(r => r.tenant_id === tenantId)
@@ -62,8 +79,8 @@ export async function POST(req: NextRequest) {
       action:  'user.invite_accepted',
       detail:  { email: user.email, role },
     }).catch(() => {})
-  } else {
-    // Already a member of this tenant — just update display name
+  } else if (first_name || last_name) {
+    // Already a member of this tenant — update display name only if provided
     await admin.from('users').update({ first_name, last_name })
       .eq('supabase_uid', user.id)
       .eq('tenant_id', tenantId)

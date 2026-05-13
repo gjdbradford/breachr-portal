@@ -1,5 +1,83 @@
 import { Resend } from 'resend'
 
+export async function sendTeamInviteEmail({
+  to,
+  orgName,
+  inviteLink,
+}: {
+  to: string
+  orgName: string
+  inviteLink: string
+}) {
+  const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+  if (!resend) {
+    console.warn('[email] sendTeamInviteEmail skipped — RESEND_API_KEY not set')
+    return
+  }
+
+  const result = await resend.emails.send({
+    from: process.env.RESEND_FROM ?? 'Breachr <onboarding@breachr.ai>',
+    to,
+    subject: `You've been invited to join ${orgName} on Breachr`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0a0e1a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0e1a;padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#0d1428;border:1px solid rgba(25,118,210,0.2);border-radius:12px;overflow:hidden;max-width:560px;">
+
+        <tr><td style="padding:24px 32px;border-bottom:1px solid rgba(255,255,255,0.06);">
+          <table cellpadding="0" cellspacing="0"><tr>
+            <td style="width:32px;height:32px;background:linear-gradient(135deg,#1976d2,#42a5f5);border-radius:8px;text-align:center;vertical-align:middle;">
+              <span style="color:#fff;font-size:16px;">⬡</span>
+            </td>
+            <td style="padding-left:10px;">
+              <span style="font-size:14px;font-weight:900;color:#fff;letter-spacing:0.08em;">BREACHR</span>
+            </td>
+          </tr></table>
+        </td></tr>
+
+        <tr><td style="padding:24px 32px 0;">
+          <span style="display:inline-block;padding:3px 10px;border-radius:4px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;font-size:10px;font-weight:700;letter-spacing:0.08em;">TEAM INVITATION</span>
+        </td></tr>
+
+        <tr><td style="padding:16px 32px 8px;">
+          <h1 style="margin:0;font-size:22px;font-weight:700;color:#e2e8f0;">You've been invited to join ${orgName}</h1>
+          <p style="margin:8px 0 0;font-size:14px;color:#64748b;">
+            You've been invited to join <strong style="color:#94a3b8;">${orgName}</strong> on Breachr as an admin. Click the button below to accept your invitation and get started.
+          </p>
+        </td></tr>
+
+        <tr><td style="padding:24px 32px 32px;">
+          <a href="${inviteLink}"
+            style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#1565c0,#1976d2);color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">
+            Accept Invitation →
+          </a>
+          <p style="margin:14px 0 0;font-size:11px;color:#475569;">This link expires in 7 days. If you didn't expect this invitation, you can safely ignore this email.</p>
+        </td></tr>
+
+        <tr><td style="padding:16px 32px;border-top:1px solid rgba(255,255,255,0.06);">
+          <p style="margin:0;font-size:11px;color:#334155;">
+            You're receiving this because someone invited you to their Breachr organisation.
+          </p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+  })
+
+  if (result.error) {
+    console.error('[email] sendTeamInviteEmail rejected by Resend:', JSON.stringify(result.error))
+    throw new Error(`Resend error: ${result.error.message}`)
+  }
+  console.log('[email] sendTeamInviteEmail accepted — id:', result.data?.id, 'to:', to)
+}
+
 export async function sendNewDeviceAlert({
   to,
   deviceIp,

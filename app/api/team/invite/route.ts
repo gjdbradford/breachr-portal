@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as adminClient } from '@supabase/supabase-js'
 import { logAuditEvent } from '@/lib/audit-log'
 import { resolvePermissions } from '@/lib/resolve-permissions'
+import { sendTeamInviteEmail } from '@/lib/email'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -49,10 +50,9 @@ export async function POST(req: NextRequest) {
   if (pendingInvite) return NextResponse.json({ error: 'An invitation has already been sent to this email.' }, { status: 409 })
 
   const origin = new URL(req.url).origin
+  const isTestEmail = email.toLowerCase().endsWith('@breachr.ai')
 
   // Check whether this email already has a confirmed Supabase auth account.
-  // inviteUserByEmail fails for confirmed users, so we skip it and just record
-  // the invitation — the recipient will be prompted in-app on next login.
   const { data: existingAuthRow } = await admin
     .from('users')
     .select('supabase_uid')
@@ -60,31 +60,55 @@ export async function POST(req: NextRequest) {
     .limit(1)
     .maybeSingle()
 
-  // Skip email delivery for internal test addresses to avoid rate-limiting CI runs.
-  const isTestEmail = email.toLowerCase().endsWith('@breachr.ai')
+  // Create the invitation record first so we have its ID to embed in the email link.
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+  const { data: invitation, error: insertError } = await admin
+    .from('invitations')
+    .insert({ tenant_id: profile.tenant_id, email, invited_by: user.id, role: 'admin', expires_at: expiresAt })
+    .select('id')
+    .single()
 
-  if (!existingAuthRow && !isTestEmail) {
-    const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-      data: { invited_tenant_id: profile.tenant_id, role: 'admin' },
-      redirectTo: `${origin}/invite/confirm`,
-    })
-    if (inviteError) {
-      console.error('[team/invite]', inviteError)
-      const status = inviteError.status ?? 503
-      let message = inviteError.message ?? 'Failed to send invitation'
-      if (status === 429) message = 'Email rate limit reached — please wait a few minutes and try again'
-      return NextResponse.json({ error: message }, { status: status >= 400 ? status : 503 })
-    }
+  if (insertError || !invitation) {
+    console.error('[team/invite] insert error', insertError)
+    return NextResponse.json({ error: 'Failed to create invitation' }, { status: 500 })
   }
 
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-  await admin.from('invitations').insert({
-    tenant_id: profile.tenant_id,
-    email,
-    invited_by: user.id,
-    role: 'admin',
-    expires_at: expiresAt,
-  })
+  if (!isTestEmail) {
+    if (!existingAuthRow) {
+      // New user: Supabase sends the invite email with a link to set up their account.
+      const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+        data: { invited_tenant_id: profile.tenant_id, role: 'admin' },
+        redirectTo: `${origin}/invite/confirm?invite_id=${invitation.id}`,
+      })
+      if (inviteError) {
+        await admin.from('invitations').delete().eq('id', invitation.id)
+        console.error('[team/invite]', inviteError)
+        const status = inviteError.status ?? 503
+        let message = inviteError.message ?? 'Failed to send invitation'
+        if (status === 429) message = 'Email rate limit reached — please wait a few minutes and try again'
+        return NextResponse.json({ error: message }, { status: status >= 400 ? status : 503 })
+      }
+    } else {
+      // Existing user in another org: generate a magic link and send via Resend.
+      const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+        type: 'magiclink',
+        email,
+        options: { redirectTo: `${origin}/invite/confirm?invite_id=${invitation.id}` },
+      })
+      if (linkError || !linkData?.properties?.action_link) {
+        await admin.from('invitations').delete().eq('id', invitation.id)
+        console.error('[team/invite] generateLink error', linkError)
+        return NextResponse.json({ error: linkError?.message ?? 'Failed to generate invite link' }, { status: 503 })
+      }
+
+      const { data: tenantData } = await admin.from('tenants').select('name').eq('id', profile.tenant_id).single()
+      await sendTeamInviteEmail({
+        to: email,
+        orgName: tenantData?.name ?? 'your organisation',
+        inviteLink: linkData.properties.action_link,
+      }).catch(err => console.error('[team/invite] sendTeamInviteEmail failed', err))
+    }
+  }
 
   await logAuditEvent({
     tenantId: profile.tenant_id,
@@ -93,5 +117,5 @@ export async function POST(req: NextRequest) {
     detail:   { invited_email: email, role: 'admin', expires_at: expiresAt },
   }).catch(() => {})
 
-  return NextResponse.json({ ok: true, emailSent: !existingAuthRow })
+  return NextResponse.json({ ok: true })
 }

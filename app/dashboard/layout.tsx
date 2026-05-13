@@ -5,7 +5,6 @@ import DashboardNav from '@/components/DashboardNav'
 import TopHeader from '@/components/TopHeader'
 import HelpPanel from '@/components/HelpPanel'
 import SurveyBanner from '@/components/SurveyBanner'
-import PendingInviteBanner from '@/components/PendingInviteBanner'
 import { HelpPanelProvider } from '@/lib/help-panel-context'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -85,7 +84,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </main>
         <HelpPanel />
         <SurveyBanner />
-        <PendingInviteBanner />
       </div>
     </HelpPanelProvider>
   )
