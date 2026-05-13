@@ -29,11 +29,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `No redirect from Supabase (${supabaseRes.status}): ${body}` }, { status: 502 })
   }
 
-  // Supabase may redirect to its configured Site URL rather than our redirect_to if
-  // the redirect_to isn't in the allowlist. Replace whatever domain Supabase chose
-  // with the actual staging portal so the browser lands on the right invite/confirm page.
+  // Supabase may redirect to its configured Site URL / path rather than our redirect_to
+  // if the URL isn't in the allowlist. Preserve only the hash (session tokens) and
+  // hardcode the path to /invite/confirm so the portal processes the invite correctly.
   const origin = `${req.nextUrl.protocol}//${req.nextUrl.host}`
-  const fixedLocation = location.replace(/^https?:\/\/[^/#?]+/, origin)
+  const hash = location.includes('#') ? location.slice(location.indexOf('#')) : ''
+  const fixedLocation = `${origin}/invite/confirm${hash}`
 
   return NextResponse.redirect(fixedLocation, { status: 302 })
 }
