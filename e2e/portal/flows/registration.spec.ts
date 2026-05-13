@@ -15,7 +15,7 @@ test('account owner registers → onboards → invites admin → admin first log
   try {
 
     // ── 1. Website registration form ────────────────────────────────────
-    await page.goto(WEBSITE_URL + '/#register')
+    await page.goto(WEBSITE_URL + '/register')
     await page.waitForLoadState('load')
 
     await page.locator('#firstName').fill('E2E')
