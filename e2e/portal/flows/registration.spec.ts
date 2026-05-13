@@ -94,16 +94,19 @@ test('account owner registers → onboards → invites admin → admin first log
       `/api/test/generate-invite-link?email=${encodeURIComponent(adminEmail)}&ownerEmail=${encodeURIComponent(ownerEmail)}`,
       { headers: { 'x-test-secret': E2E_TEST_SECRET } },
     )
-    expect(inviteRes.status(), 'generate-invite-link should return 200').toBe(200)
+    const inviteBody = await inviteRes.json()
+    expect(inviteRes.status(), `generate-invite-link failed (${inviteRes.status()}): ${JSON.stringify(inviteBody)}`).toBe(200)
 
-    const { action_link } = await inviteRes.json() as { action_link: string }
+    const { action_link } = inviteBody as { action_link: string }
     expect(action_link, 'action_link should be a non-empty string').toBeTruthy()
 
     // ── 9. Admin accepts invite ──────────────────────────────────────────
-    // Hoist the final URL wait before goto to avoid a race where /invite/confirm
-    // has already redirected to /invite/accept by the time waitForURL is registered
+    // Playwright's Chromium can't resolve *.supabase.co directly (DNS restriction).
+    // Use a staging-only proxy that server-side fetches the Supabase auth URL,
+    // patches the redirect domain to the staging portal, and issues a normal redirect.
+    const proxyUrl = `${PORTAL_URL}/api/test/proxy-invite-link?secret=${E2E_TEST_SECRET}&url=${encodeURIComponent(action_link)}`
     const acceptPagePromise = page.waitForURL(/\/invite\/accept/, { timeout: 20_000 })
-    await page.goto(action_link)
+    await page.goto(proxyUrl)
     await acceptPagePromise
     await page.waitForLoadState('load')
 
