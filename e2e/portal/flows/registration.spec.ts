@@ -77,21 +77,13 @@ test('account owner registers → onboards → invites admin → admin first log
       'Should advance to step 4',
     ).toBeVisible({ timeout: 5_000 })
 
-    // ── 6. Onboarding step 4 — invite admin ──────────────────────────────
-    await page.getByRole('textbox', { name: /admin email/i })
-      .or(page.getByPlaceholder('security@yourcompany.com'))
-      .fill(adminEmail)
+    // ── 6. Onboarding step 4 — skip invite (admin invited via API in step 8) ─
+    // Sending an invite here triggers inviteUserByEmail which hits Supabase's
+    // email-send rate limit in CI. Skip it; generate-invite-link creates the
+    // auth user + invitation record without sending email.
+    await page.getByRole('button', { name: /i'll do this later/i }).click()
 
-    await page.getByRole('button', { name: /send invite/i }).click()
-
-    await expect(
-      page.getByText(/invite sent to/i),
-      'Invite sent confirmation should appear',
-    ).toBeVisible({ timeout: 15_000 })
-
-    // ── 7. Finish onboarding ─────────────────────────────────────────────
-    await page.getByRole('button', { name: /go to dashboard/i }).click()
-
+    // ── 7. Should be on dashboard ────────────────────────────────────────
     await expect(page, 'Should land on dashboard after onboarding').toHaveURL(
       /\/dashboard/,
       { timeout: 15_000 },
