@@ -18,6 +18,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid email param' }, { status: 400 })
   }
 
+  const ownerEmail = searchParams.get('ownerEmail')
+
   const origin = `${req.nextUrl.protocol}//${req.nextUrl.host}`
 
   const admin = createClient(
@@ -25,11 +27,24 @@ export async function GET(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
 
+  // Resolve tenant context from the owner so accept-invite can find the tenant.
+  let invitedTenantId: string | undefined
+  if (ownerEmail) {
+    const { data: ownerRow } = await admin
+      .from('users')
+      .select('tenant_id')
+      .eq('email', ownerEmail.trim())
+      .eq('role', 'account_owner')
+      .maybeSingle()
+    invitedTenantId = ownerRow?.tenant_id ?? undefined
+  }
+
   const { data, error } = await admin.auth.admin.generateLink({
     type: 'invite',
     email,
     options: {
       redirectTo: `${origin}/invite/confirm`,
+      ...(invitedTenantId ? { data: { invited_tenant_id: invitedTenantId, role: 'admin' } } : {}),
     },
   })
 

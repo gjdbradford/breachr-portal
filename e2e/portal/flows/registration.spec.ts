@@ -99,7 +99,7 @@ test('account owner registers → onboards → invites admin → admin first log
 
     // ── 8. Generate invite link (no UI equivalent) ───────────────────────
     const inviteRes = await request.get(
-      `/api/test/generate-invite-link?email=${encodeURIComponent(adminEmail)}`,
+      `/api/test/generate-invite-link?email=${encodeURIComponent(adminEmail)}&ownerEmail=${encodeURIComponent(ownerEmail)}`,
       { headers: { 'x-test-secret': E2E_TEST_SECRET } },
     )
     expect(inviteRes.status(), 'generate-invite-link should return 200').toBe(200)

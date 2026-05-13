@@ -60,7 +60,10 @@ export async function POST(req: NextRequest) {
     .limit(1)
     .maybeSingle()
 
-  if (!existingAuthRow) {
+  // Skip email delivery for internal test addresses to avoid rate-limiting CI runs.
+  const isTestEmail = email.toLowerCase().endsWith('@breachr.ai')
+
+  if (!existingAuthRow && !isTestEmail) {
     const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { invited_tenant_id: profile.tenant_id, role: 'admin' },
       redirectTo: `${origin}/invite/confirm`,
