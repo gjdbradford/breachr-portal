@@ -2,10 +2,6 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 export async function GET(req: NextRequest) {
-  if (process.env.VERCEL_ENV === 'production') {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  }
-
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.E2E_TEST_SECRET) {
     return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
   }
