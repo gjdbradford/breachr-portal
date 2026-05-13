@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-const WEBSITE_URL     = process.env.WEBSITE_URL     || 'https://staging.breachr.ai'
+const WEBSITE_URL     = process.env.WEBSITE_URL     || 'https://breachr-website.vercel.app'
 const PORTAL_URL      = process.env.PORTAL_URL      || 'https://staging.portal.breachr.ai'
 const PASSWORD        = 'E2eBreachr@1!'
 const E2E_TEST_SECRET = process.env.E2E_TEST_SECRET || ''
@@ -23,6 +23,7 @@ test('account owner registers → onboards → invites admin → admin first log
     await page.locator('#email').fill(ownerEmail)
     await page.locator('#password').fill(PASSWORD)
     await page.locator('#company').fill(`E2E Test Co ${runId}`)
+    await page.locator('#role').selectOption('CISO')
     await page.locator('#companySize').selectOption('1-10')
     await page.locator('#industry').selectOption('other')
     await page.getByRole('button', { name: /start free/i }).click()
