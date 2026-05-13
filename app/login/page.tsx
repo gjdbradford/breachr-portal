@@ -24,10 +24,11 @@ export default function LoginPage() {
       setError(known[e] ?? decodeURIComponent(e))
     }
 
-    // If already authenticated, go to dashboard (client-side to avoid proxy loop)
+    // Use getUser() (server-verified) not getSession() (local JWT only) to avoid
+    // a redirect loop when a user's account has been deleted but their cookie remains.
     const supabase = createClient()
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) window.location.href = '/dashboard'
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) window.location.href = '/dashboard'
     })
   }, [])
 
