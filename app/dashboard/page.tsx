@@ -1,9 +1,19 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { DORA_ARTICLES } from '@/lib/types'
 import LaunchScanButton from '@/components/LaunchScanButton'
 import { resolvePermissions } from '@/lib/resolve-permissions'
+import { FRAMEWORKS, computeFrameworkScore } from '@/lib/frameworks'
+import type { FrameworkScoreInputs } from '@/lib/frameworks'
+import { computeExposureScore } from '@/lib/exposure-score'
+import KpiGrid from '@/components/dashboard/KpiGrid'
+import ExposureGauge from '@/components/dashboard/ExposureGauge'
+import AiEnginePanel from '@/components/dashboard/AiEnginePanel'
+import FrameworkAccordion from '@/components/dashboard/FrameworkAccordion'
+import TargetsCard from '@/components/dashboard/TargetsCard'
+import type { TargetTypeSummary } from '@/components/dashboard/TargetsCard'
+import InventoryMiniCard from '@/components/dashboard/InventoryMiniCard'
+import SensorsMiniCard from '@/components/dashboard/SensorsMiniCard'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -15,7 +25,7 @@ export default async function DashboardPage() {
   const tenantId = profile.tenant_id
 
   const { data: tenant } = await supabase
-    .from('tenants').select('name, onboarding_complete, plan, industry, scans_this_month, tokens_used_this_month').eq('id', tenantId).single()
+    .from('tenants').select('name, onboarding_complete, plan, industry, scans_this_month, tokens_used_this_month, compliance_frameworks, node_count, ai_model_override, data_region').eq('id', tenantId).single()
   if (tenant && !tenant.onboarding_complete) redirect('/onboarding')
 
   const [
@@ -32,6 +42,14 @@ export default async function DashboardPage() {
     { data: recentAudit },
     { data: surfaces },
     resolved,
+    // New queries for dashboard redesign
+    { data: allSurfaces },
+    { data: findingsPerSurface },
+    { data: sensors },
+    { count: inventoryTotal },
+    { count: inventoryUnreviewed },
+    { count: inventoryServers },
+    { count: inventoryServices },
   ] = await Promise.all([
     supabase.from('scans').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'running'),
     supabase.from('scans').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'complete'),
@@ -46,6 +64,13 @@ export default async function DashboardPage() {
     supabase.from('audit_logs').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(6),
     supabase.from('attack_surfaces').select('id,name,target_url').eq('tenant_id', tenantId).eq('active', true),
     resolvePermissions(user.id),
+    supabase.from('attack_surfaces').select('id,target_type').eq('tenant_id', tenantId).eq('active', true),
+    supabase.from('findings').select('attack_surface_id,severity').eq('tenant_id', tenantId).in('status', ['open', 'in_progress']),
+    supabase.from('sensors').select('id,name,status,location').eq('tenant_id', tenantId).order('name'),
+    supabase.from('assets').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('is_active', true),
+    supabase.from('assets').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('is_active', true).is('acknowledged_at', null),
+    supabase.from('assets').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('is_active', true).eq('asset_type', 'server'),
+    supabase.from('assets').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('is_active', true).eq('asset_type', 'service'),
   ])
 
   const hasScans = (completedScans ?? 0) > 0
@@ -58,170 +83,157 @@ export default async function DashboardPage() {
 
   // Remediation ratio (what % of all findings have been fixed)
   const remediatedRatio = total > 0 ? remediated / total : 0
-  // Coverage score — penalise open criticals heavily
-  const coverageScore = hasScans
-    ? Math.max(0, Math.min(100, 100 - (criticals * 15) - (open * 3)))
-    : 0
 
-  // DORA article scores derived from real data
-  const doraScores = [
-    // Art. 5-10: ICT Risk Management — have you tested + addressed findings?
-    hasScans ? Math.round(50 + remediatedRatio * 30 + (surfaceCount > 0 ? 10 : 0) + (criticals === 0 ? 10 : 0)) : 0,
-    // Art. 17: Incident Management — are criticals being addressed?
-    hasScans ? Math.round(80 - (criticals * 12)) : 0,
-    // Art. 24: General ICT Testing — number of completed scans
-    Math.min(100, (completedScans ?? 0) * 25),
-    // Art. 25: Advanced Testing — TLPT scans done?
-    Math.min(100, tlpt * 50),
-    // Art. 26: TIBER-EU — only if explicit TLPT exercise completed
-    tlpt > 0 ? 60 : 0,
-    // Art. 28-30: Third-party risk — surfaces tested
-    Math.min(100, surfaceCount * 30 + (hasScans ? 40 : 0)),
-  ].map(s => Math.max(0, Math.min(100, Math.round(s))))
-
-  const doraScore = Math.round(doraScores.reduce((a, b) => a + b, 0) / doraScores.length)
   const signedRatio = auditEvents ? Math.round(((auditSigned ?? 0) / auditEvents) * 100) : 0
 
-  const circumference = 2 * Math.PI * 40
-  const dashArr = Math.round((doraScore / 100) * circumference)
+  const activeFrameworks: string[] = (tenant?.compliance_frameworks ?? []) as string[]
+  const nodeCount = tenant?.node_count ?? 1
+  const dataRegion = tenant?.data_region ?? 'eu'
+  const activeModel = tenant?.ai_model_override ?? null
+
+  // Build framework score inputs
+  const fwInputs: FrameworkScoreInputs = {
+    hasScans,
+    completedScans: completedScans ?? 0,
+    criticals,
+    highs: 0,
+    open,
+    total,
+    remediated,
+    tlpt: tlpt ?? 0,
+    surfaceCount,
+    auditEvents: auditEvents ?? 0,
+    auditSignedRatio: auditEvents ? (auditSigned ?? 0) / auditEvents : 0,
+    remediatedRatio,
+  }
+
+  // Compute per-framework scores for active frameworks only
+  const frameworkScores = FRAMEWORKS
+    .filter(f => activeFrameworks.includes(f.id))
+    .map(f => computeFrameworkScore(f, fwInputs))
+
+  // Weighted exposure score
+  const avgComplianceScore = frameworkScores.length > 0
+    ? frameworkScores.reduce((sum, f) => sum + f.overall, 0) / frameworkScores.length
+    : 0
+  const findingsScore = Math.max(0, Math.min(100, 100 - criticals * 15 - open * 3))
+  const coverageScore = hasScans ? Math.min(100, (completedScans ?? 0) * 12 + surfaceCount * 8) : 0
+  const auditIntegrityScore = signedRatio
+
+  const exposureDimensions = [
+    { label: 'Compliance',   weight: 0.35, score: Math.round(avgComplianceScore) },
+    { label: 'Findings',     weight: 0.30, score: findingsScore },
+    { label: 'Coverage',     weight: 0.20, score: coverageScore },
+    { label: 'Audit',        weight: 0.15, score: auditIntegrityScore },
+  ]
+  const exposureScore = computeExposureScore(exposureDimensions)
+
+  // Build targets-by-type summary
+  type FindingRow = { attack_surface_id: string | null; severity: string }
+  const findingsBySurface: Record<string, FindingRow[]> = {}
+  for (const f of findingsPerSurface ?? []) {
+    const sid = f.attack_surface_id ?? '__none__'
+    findingsBySurface[sid] = [...(findingsBySurface[sid] ?? []), f]
+  }
+
+  type SurfaceRow = { id: string; target_type: string }
+  const typeMap: Record<string, { count: number; cleanCount: number; findingsCount: number; criticalCount: number }> = {}
+  for (const s of (allSurfaces ?? []) as SurfaceRow[]) {
+    const t = s.target_type ?? 'other'
+    if (!typeMap[t]) typeMap[t] = { count: 0, cleanCount: 0, findingsCount: 0, criticalCount: 0 }
+    typeMap[t].count++
+    const sFindings = findingsBySurface[s.id] ?? []
+    if (sFindings.length === 0) {
+      typeMap[t].cleanCount++
+    } else {
+      typeMap[t].findingsCount++
+      if (sFindings.some(f => f.severity === 'critical')) typeMap[t].criticalCount++
+    }
+  }
+  const targetSummaries: TargetTypeSummary[] = Object.entries(typeMap).map(([type, counts]) => ({ type, ...counts }))
 
   return (
     <div className="portal-content">
+
       {/* Header */}
       <div className="portal-header">
         <div>
-          <h1 className="font-display" style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.05em' }}>
+          <h1 className="font-display" style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
             Compliance Dashboard
           </h1>
-          <p style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{tenant?.name ?? 'Security Dashboard'}</p>
+          <p style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>
+            {tenant?.name ?? 'Security Dashboard'} · {activeFrameworks.length} framework{activeFrameworks.length !== 1 ? 's' : ''} active
+          </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#22c55e', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 6, padding: '5px 10px' }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'pulse 2s infinite' }} />
-            Audit trail live · EU only
+            Audit trail live
+          </div>
+          <div style={{ fontSize: 11, color: '#42a5f5', background: 'rgba(66,165,245,0.08)', border: '1px solid rgba(66,165,245,0.2)', borderRadius: 6, padding: '5px 10px' }}>
+            {dataRegion === 'africa' ? '🌍 Africa · Cape Town' : '🇪🇺 EU · Frankfurt'}
           </div>
           {surfaces && surfaces.length > 0 && (
-            <LaunchScanButton surfaces={surfaces} tenantId={tenantId} planId={tenant?.plan ?? 'free'} scansThisMonth={tenant?.scans_this_month ?? 0} tokensThisMonth={tenant?.tokens_used_this_month ?? 0} canCreate={resolved['scans.create']} />
+            <LaunchScanButton
+              surfaces={surfaces}
+              tenantId={tenantId}
+              planId={tenant?.plan ?? 'free'}
+              scansThisMonth={tenant?.scans_this_month ?? 0}
+              tokensThisMonth={tenant?.tokens_used_this_month ?? 0}
+              canCreate={resolved['scans.create']}
+            />
           )}
         </div>
       </div>
 
-      {/* Metric cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
-        <MetricCard accent="#22c55e" label="DORA Compliance Score" value={`${doraScore}`} suffix="/100"
-          sub={doraScore >= 80 ? 'Compliant posture' : doraScore >= 50 ? 'Partial — action needed' : hasScans ? 'Critical findings open' : 'Run first scan to assess'} />
-        <MetricCard accent="#ef4444" label="Critical Findings Open" value={String(criticals)}
-          sub={criticals > 0 ? 'Board notification required' : 'No critical issues'} />
-        <MetricCard accent="#f59e0b" label="Scans" value={String(completedScans ?? 0)}
-          sub={`${activeScans ?? 0} running · ${completedScans ?? 0} complete`} />
-        <MetricCard accent="#3b82f6" label="Audit Events" value={String(auditEvents ?? 0)}
-          sub={auditEvents ? `${signedRatio}% cryptographically signed` : 'Launch a scan to start'} />
+      {/* ── Hero row: Exposure gauge + KPI grid + AI Engine panel ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 200px', gap: 14, marginBottom: 16 }}>
+
+        <ExposureGauge score={exposureScore} dimensions={exposureDimensions} />
+
+        <KpiGrid tiles={[
+          { label: 'Critical Findings',   value: String(criticals),               accent: '#ef4444', borderColor: 'rgba(239,68,68,0.15)',   sub: criticals > 0 ? 'Board notification required' : 'No critical issues' },
+          { label: 'Total Open Findings', value: String(open),                    accent: '#f59e0b', borderColor: 'rgba(245,158,11,0.15)',   sub: `${open - criticals} non-critical open` },
+          { label: 'Scans',               value: String(completedScans ?? 0),     accent: '#3b82f6', borderColor: 'rgba(59,130,246,0.15)',   sub: `${activeScans ?? 0} running · ${completedScans ?? 0} complete` },
+          { label: 'Audit Events',        value: String(auditEvents ?? 0),        accent: '#22c55e', borderColor: 'rgba(34,197,94,0.15)',    sub: auditEvents ? `${signedRatio}% cryptographically signed` : 'Launch a scan to start' },
+          { label: 'Target Surfaces',     value: String(surfaceCount),            accent: '#64748b', borderColor: 'rgba(100,116,139,0.15)',  sub: targetSummaries.map(t => `${t.count} ${t.type}`).join(' · ') || 'No targets yet' },
+          { label: 'Inventory Assets',    value: String(inventoryTotal ?? 0),     accent: '#14b8a6', borderColor: 'rgba(20,184,166,0.15)',   sub: (inventoryUnreviewed ?? 0) > 0 ? `${inventoryUnreviewed} unreviewed` : 'All reviewed' },
+        ]} />
+
+        <AiEnginePanel
+          planId={tenant?.plan ?? 'free'}
+          activeModel={activeModel}
+          nodeCount={nodeCount}
+          dataRegion={dataRegion}
+        />
       </div>
 
-      {/* Main two-column */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16, marginBottom: 20 }}>
-        {/* DORA article table */}
-        <div className="gs au1" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>DORA Article Compliance Status</span>
-            <span style={{ fontSize: 10, color: '#64748b' }}>Based on scan history</span>
-          </div>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Article</th>
-                <th>Requirement</th>
-                <th>Score</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {DORA_ARTICLES.map((art, i) => {
-                const score = doraScores[i] ?? 0
-                const status = !hasScans && score === 0 ? 'pending'
-                  : score >= 80 ? 'compliant'
-                  : score >= 50 ? 'partial'
-                  : score > 0   ? 'fail'
-                  : 'pending'
-                return (
-                  <tr key={art.ref}>
-                    <td><span style={{ fontFamily: 'monospace', fontSize: 10, color: '#64748b' }}>{art.ref}</span></td>
-                    <td>
-                      <div style={{ fontWeight: 500, fontSize: 12 }}>{art.name}</div>
-                      <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>{art.desc}</div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${score}%`, borderRadius: 2, background: score >= 80 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444', transition: 'width 0.3s' }} />
-                        </div>
-                        <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#64748b', minWidth: 28 }}>{score > 0 ? `${score}%` : '—'}</span>
-                      </div>
-                    </td>
-                    <td><DoraStatusPill status={status} /></td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+      {/* ── Compliance + right panel ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 14, marginBottom: 16 }}>
 
-        {/* Right column: score ring + quick actions */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div className="gs au1" style={{ padding: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>Overall DORA Posture</p>
-            <div style={{ position: 'relative', width: 100, height: 100 }}>
-              <svg viewBox="0 0 100 100" width="100" height="100">
-                <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
-                <circle cx="50" cy="50" r="40" fill="none"
-                  stroke={doraScore >= 80 ? '#22c55e' : doraScore >= 50 ? '#f59e0b' : doraScore > 0 ? '#ef4444' : '#334155'}
-                  strokeWidth="8"
-                  strokeDasharray={`${dashArr} ${circumference}`} strokeDashoffset="63"
-                  strokeLinecap="round" transform="rotate(-90 50 50)" />
-              </svg>
-              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>
-                <div className="font-display" style={{ fontSize: 26, fontWeight: 800, color: doraScore >= 80 ? '#22c55e' : doraScore >= 50 ? '#f59e0b' : '#42a5f5', lineHeight: 1 }}>{doraScore}</div>
-                <div style={{ fontSize: 10, color: '#64748b' }}>/100</div>
-              </div>
-            </div>
-            <div style={{ width: '100%' }}>
-              {[
-                { label: 'Audit coverage', val: `${signedRatio}%`, ok: signedRatio === 100 },
-                { label: 'Findings remediated', val: total > 0 ? `${Math.round(remediatedRatio * 100)}%` : '—', ok: remediatedRatio > 0.7 },
-                { label: 'TLPT completion', val: tlpt > 0 ? `${tlpt} exercise${tlpt > 1 ? 's' : ''}` : 'None', ok: tlpt > 0 },
-                { label: 'Data isolation', val: 'EU ✓', ok: true },
-                { label: 'Surfaces tested', val: surfaceCount > 0 ? String(surfaceCount) : '—', ok: surfaceCount > 0 },
-              ].map(row => (
-                <div key={row.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: 11 }}>
-                  <span style={{ color: '#64748b' }}>{row.label}</span>
-                  <span style={{ fontFamily: 'monospace', fontSize: 10, color: row.ok ? '#22c55e' : '#f59e0b' }}>{row.val}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+        <FrameworkAccordion
+          activeFrameworks={activeFrameworks}
+          scores={frameworkScores}
+        />
 
-          <div className="gs au1" style={{ padding: 14 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0', marginBottom: 10 }}>Quick Actions</p>
-            {[
-              { icon: '📄', name: 'Export BaFin evidence pack', sub: 'Art. 24/25 · cryptographic proof · PDF', href: '/dashboard/reports' },
-              { icon: '⚔️', name: 'Schedule TLPT exercise', sub: 'TIBER-EU · Art. 26 · CREST team', href: '/dashboard/scans' },
-              { icon: '⛓', name: 'View audit chain', sub: `${auditEvents ?? 0} signed entries · 2yr retention`, href: '/dashboard/audit' },
-            ].map(a => (
-              <Link key={a.name} href={a.href} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', marginBottom: 6, textDecoration: 'none' }}>
-                <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(25,118,210,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>{a.icon}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 500, color: '#e2e8f0' }}>{a.name}</div>
-                  <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>{a.sub}</div>
-                </div>
-                <span style={{ color: '#64748b', fontSize: 12 }}>›</span>
-              </Link>
-            ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <TargetsCard summaries={targetSummaries} totalCount={surfaceCount} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <InventoryMiniCard
+              total={inventoryTotal ?? 0}
+              servers={inventoryServers ?? 0}
+              services={inventoryServices ?? 0}
+              unreviewed={inventoryUnreviewed ?? 0}
+            />
+            <SensorsMiniCard sensors={sensors ?? []} />
           </div>
         </div>
       </div>
 
-      {/* Bottom: findings + audit trail */}
+      {/* ── Bottom row: findings + audit ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+        {/* Recent findings */}
         <div className="gs au1" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>
@@ -245,7 +257,7 @@ export default async function DashboardPage() {
                   <tr key={f.id}>
                     <td style={{ maxWidth: 200 }}>
                       <div style={{ fontWeight: 500, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.title}</div>
-                      {f.finding_hash && <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#3b5f8a', display: 'block', marginTop: 1 }} title={f.finding_hash}>{f.finding_hash.slice(0, 16)}…</span>}
+                      {f.finding_hash && <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#3b5f8a', display: 'block', marginTop: 1 }}>{f.finding_hash.slice(0, 16)}…</span>}
                     </td>
                     <td><span className={`sev-${f.severity}`} style={{ borderRadius: 3, fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '2px 6px' }}>{f.severity}</span></td>
                     <td style={{ fontFamily: 'monospace', fontSize: 11 }}>{f.cvss_score ?? '—'}</td>
@@ -271,6 +283,7 @@ export default async function DashboardPage() {
           )}
         </div>
 
+        {/* Cryptographic audit trail */}
         <div className="gs au1" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>Cryptographic Audit Trail</span>
@@ -291,37 +304,12 @@ export default async function DashboardPage() {
           )}
         </div>
       </div>
+
     </div>
   )
 }
 
-function MetricCard({ label, value, suffix = '', sub, accent }: { label: string; value: string; suffix?: string; sub: string; accent: string }) {
-  return (
-    <div style={{ background: 'rgba(13,20,40,0.65)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '14px 16px', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: accent }} />
-      <p style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{label}</p>
-      <p className="font-display" style={{ fontSize: 28, fontWeight: 800, lineHeight: 1, color: accent }}>
-        {value}<span style={{ fontSize: 14 }}>{suffix}</span>
-      </p>
-      <p style={{ fontSize: 10, color: '#64748b', marginTop: 6 }}>{sub}</p>
-    </div>
-  )
-}
-
-function DoraStatusPill({ status }: { status: string }) {
-  const map: Record<string, { label: string; color: string; bg: string; border: string }> = {
-    compliant: { label: '✓ Compliant',    color: '#22c55e', bg: 'rgba(34,197,94,0.1)',  border: 'rgba(34,197,94,0.2)' },
-    partial:   { label: '⚠ Partial',      color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)' },
-    fail:      { label: '✗ Non-compliant', color: '#ef4444', bg: 'rgba(239,68,68,0.1)',  border: 'rgba(239,68,68,0.2)' },
-    pending:   { label: '○ Not assessed',  color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.2)' },
-  }
-  const s = map[status] ?? map.pending
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 4, fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', padding: '3px 7px', whiteSpace: 'nowrap', color: s.color, background: s.bg, border: `1px solid ${s.border}` }}>
-      {s.label}
-    </span>
-  )
-}
+// ── AuditRow helper ────────────────────────────
 
 function AuditRow({ log }: { log: any }) {
   const actionColors: Record<string, string> = {
@@ -332,7 +320,6 @@ function AuditRow({ log }: { log: any }) {
   let detail = ''
   try {
     const parsed = JSON.parse(log.detail ?? '{}')
-    // Show the most useful field without the internal _ts
     const { _ts, scan_id, finding_id, ...rest } = parsed
     const key = Object.keys(rest)[0]
     detail = key ? `${key}: ${String(rest[key]).slice(0, 40)}` : ''
