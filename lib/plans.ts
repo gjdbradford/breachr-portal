@@ -119,3 +119,30 @@ export function fmtTokens(n: number): string {
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`
   return String(n)
 }
+
+// ── Scanning tier system ──────────────────────────────────────────────────
+
+export type ScanTier = 'bronze' | 'silver' | 'gold' | 'platinum'
+
+export const PLAN_TIER: Record<PlanId, ScanTier> = {
+  free:         'bronze',
+  starter:      'silver',
+  professional: 'gold',
+  enterprise:   'platinum',
+}
+
+export interface TierConfig {
+  label: string
+  badge: string        // medal emoji
+  modelClass: string   // human-readable description shown in AI panel
+  maxNodes: number     // display cap for node dots
+  byoModel: boolean    // whether Switch/BYO button is enabled
+  onPrem: boolean      // whether on-prem option is shown
+}
+
+export const TIER_CONFIG: Record<ScanTier, TierConfig> = {
+  bronze:   { label: 'Bronze',   badge: '🥉', modelClass: 'Lightweight AI',           maxNodes: 1,  byoModel: false, onPrem: false },
+  silver:   { label: 'Silver',   badge: '🥈', modelClass: 'Standard AI',               maxNodes: 1,  byoModel: false, onPrem: false },
+  gold:     { label: 'Gold',     badge: '🥇', modelClass: 'Multi-Agent AI',            maxNodes: 3,  byoModel: false, onPrem: false },
+  platinum: { label: 'Platinum', badge: '💎', modelClass: 'Best Models · Multi-Agent', maxNodes: 10, byoModel: true,  onPrem: true  },
+}
