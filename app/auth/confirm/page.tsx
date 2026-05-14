@@ -29,9 +29,7 @@ export default function AuthConfirmPage() {
       if (error) {
         window.location.href = `/login?error=${encodeURIComponent(error.message)}`
       } else {
-        // For password-recovery type, send to a change-password page (future);
-        // for everything else, go straight to dashboard.
-        window.location.href = type === 'recovery' ? '/dashboard' : '/dashboard'
+        window.location.href = type === 'invite' ? '/invite/accept' : '/dashboard'
       }
     })
   }, [])

@@ -24,6 +24,15 @@ export default function LoginPage() {
       setError(known[e] ?? decodeURIComponent(e))
     }
 
+    // Supabase falls back to Site URL when redirectTo isn't allowlisted —
+    // the browser then preserves the hash through the server redirect to /login.
+    // Forward to /auth/confirm so the token gets properly exchanged.
+    const hash = window.location.hash.slice(1)
+    if (hash && new URLSearchParams(hash).get('access_token')) {
+      window.location.replace('/auth/confirm' + window.location.hash)
+      return
+    }
+
     // Use getUser() (server-verified) not getSession() (local JWT only) to avoid
     // a redirect loop when a user's account has been deleted but their cookie remains.
     const supabase = createClient()

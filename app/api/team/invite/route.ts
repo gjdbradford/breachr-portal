@@ -73,23 +73,45 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create invitation' }, { status: 500 })
   }
 
+  // Track whether this is a re-invite (user exists in Supabase auth but never completed setup)
+  let reinvited = false
+
   if (!isTestEmail) {
-    if (!existingAuthRow) {
+    // useGenerateLink: true for users who already have a Supabase auth account
+    let useGenerateLink = !!existingAuthRow
+
+    if (!useGenerateLink) {
       // New user: Supabase sends the invite email with a link to set up their account.
       const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
         data: { invited_tenant_id: profile.tenant_id, role: 'admin' },
         redirectTo: `${origin}/invite/confirm?invite_id=${invitation.id}`,
       })
       if (inviteError) {
-        await admin.from('invitations').delete().eq('id', invitation.id)
-        console.error('[team/invite]', inviteError)
-        const status = inviteError.status ?? 503
-        let message = inviteError.message ?? 'Failed to send invitation'
-        if (status === 429) message = 'Email rate limit reached — please wait a few minutes and try again'
-        return NextResponse.json({ error: message }, { status: status >= 400 ? status : 503 })
+        // Status 422 / "already been registered" means the user clicked a previous invite
+        // link (creating a Supabase auth record) but never completed account setup.
+        // Fall back to the generateLink path so they can finish registration.
+        const isPartiallyRegistered =
+          inviteError.status === 422 ||
+          (inviteError.message ?? '').toLowerCase().includes('already been registered') ||
+          (inviteError.message ?? '').toLowerCase().includes('already registered')
+
+        if (!isPartiallyRegistered) {
+          await admin.from('invitations').delete().eq('id', invitation.id)
+          console.error('[team/invite]', inviteError)
+          const status = inviteError.status ?? 503
+          let message = inviteError.message ?? 'Failed to send invitation'
+          if (status === 429) message = 'Email rate limit reached — please wait a few minutes and try again'
+          return NextResponse.json({ error: message }, { status: status >= 400 ? status : 503 })
+        }
+
+        useGenerateLink = true
+        reinvited = true
       }
-    } else {
-      // Existing user in another org: generate a magic link and send via Resend.
+    }
+
+    if (useGenerateLink) {
+      // Existing user (another org) or partially-registered user: generate a magic link
+      // and send via Resend so they can complete or start their setup.
       const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
         type: 'magiclink',
         email,
@@ -114,8 +136,8 @@ export async function POST(req: NextRequest) {
     tenantId: profile.tenant_id,
     userId:   user.id,
     action:   'user.invited',
-    detail:   { invited_email: email, role: 'admin', expires_at: expiresAt },
+    detail:   { invited_email: email, role: 'admin', expires_at: expiresAt, reinvited },
   }).catch(() => {})
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, reinvited })
 }

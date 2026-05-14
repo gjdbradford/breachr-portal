@@ -86,7 +86,10 @@ export default function TeamTab({
       body: JSON.stringify({ email: inviteEmail }),
     })
     if (res.ok) {
-      setSuccess(`Invitation email sent to ${inviteEmail}`)
+      const data = await res.json().catch(() => ({}))
+      setSuccess(data.reinvited
+        ? `Re-invite sent to ${inviteEmail} — they can now complete their account setup`
+        : `Invitation sent to ${inviteEmail}`)
       setInviteEmail('')
       setShowInviteForm(false)
       load()
