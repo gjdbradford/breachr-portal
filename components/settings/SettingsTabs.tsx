@@ -73,7 +73,7 @@ export default function SettingsTabs({
       />}
       {activeTab === 'team'        && <TeamTab currentUserId={currentUserId} currentUserRole={user.role} canInvite={canInvite} timezone={tenant.timezone ?? 'UTC'} />}
       {activeTab === 'permissions' && isOwner && <PermissionsTab />}
-      {activeTab === 'subscription' && <SubscriptionTab data={subscription} />}
+      {activeTab === 'subscription' && <SubscriptionTab data={subscription} isOwner={isOwner} />}
     </div>
   )
 }

@@ -30,7 +30,7 @@ function fmtPrice(slug: string, price: number | null) {
   return `€${price.toLocaleString()}/month`
 }
 
-export default function SubscriptionTab({ data }: { data: SubscriptionData }) {
+export default function SubscriptionTab({ data, isOwner = false }: { data: SubscriptionData; isOwner?: boolean }) {
   const cta = UPGRADE_CTA[data.packageSlug] ?? UPGRADE_CTA.enterprise
   const metrics: [string, string][] = [
     ['Scans / month', fmtLimit(data.scansLimit)],
@@ -79,17 +79,19 @@ export default function SubscriptionTab({ data }: { data: SubscriptionData }) {
         </>
       )}
 
-      <a
-        href={`mailto:${SALES_EMAIL}?subject=${encodeURIComponent(cta.subject)}`}
-        style={{
-          display: 'inline-block', padding: '10px 22px',
-          background: 'linear-gradient(135deg,#1565c0,#1976d2)',
-          color: '#fff', fontSize: 13, fontWeight: 600,
-          textDecoration: 'none', borderRadius: 8,
-        }}
-      >
-        {cta.label}
-      </a>
+      {isOwner && (
+        <a
+          href={`mailto:${SALES_EMAIL}?subject=${encodeURIComponent(cta.subject)}`}
+          style={{
+            display: 'inline-block', padding: '10px 22px',
+            background: 'linear-gradient(135deg,#1565c0,#1976d2)',
+            color: '#fff', fontSize: 13, fontWeight: 600,
+            textDecoration: 'none', borderRadius: 8,
+          }}
+        >
+          {cta.label}
+        </a>
+      )}
     </div>
   )
 }
