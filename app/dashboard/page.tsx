@@ -217,7 +217,7 @@ export default async function DashboardPage() {
         />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <TargetsCard summaries={targetSummaries} totalCount={surfaceCount} />
+          <TargetsCard summaries={targetSummaries} totalCount={surfaceCount} canCreate={resolved['scans.create']} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <InventoryMiniCard
               total={inventoryTotal ?? 0}
@@ -278,7 +278,9 @@ export default async function DashboardPage() {
               <p style={{ marginBottom: 12, fontSize: 13 }}>No findings yet — run a scan to start.</p>
               {surfaces && surfaces.length > 0
                 ? <LaunchScanButton surfaces={surfaces} tenantId={tenantId} canCreate={resolved['scans.create']} />
-                : <Link href="/onboarding" className="btn-p" style={{ fontSize: 12, padding: '7px 16px' }}>Add Target →</Link>}
+                : resolved['scans.create']
+                  ? <Link href="/dashboard/targets" className="btn-p" style={{ fontSize: 12, padding: '7px 16px' }}>Add Target →</Link>
+                  : null}
             </div>
           )}
         </div>

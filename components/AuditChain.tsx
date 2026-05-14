@@ -81,6 +81,7 @@ type ServerResult = {
   allValid: boolean
   total: number
   failed: number
+  annotated: number
   failedEntries: VerifyEntry[]
 }
 
@@ -141,10 +142,12 @@ export default function AuditChain({
       const data = await res.json()
       const allEntries: VerifyEntry[] = (data.entries ?? []).map((e: VerifyEntry) => ({ ...e, id: String(e.id) }))
       const failedEntries = allEntries.filter(e => !e.valid)
+      const annotated = failedEntries.filter(e => !!e.chain_annotation).length
       setServerResult({
         allValid:      data.allValid,
         total:         allEntries.length,
         failed:        failedEntries.length,
+        annotated,
         failedEntries,
       })
     } catch { /* ignore */ }
@@ -223,16 +226,29 @@ export default function AuditChain({
             {hasFilters ? filteredCount : entries.length}
           </p>
         </div>
-        {serverResult && (
-          <div className="gs" style={{ flex: 1, minWidth: 140, padding: '14px 18px', borderRadius: 10 }}>
-            <p style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>HMAC Verification</p>
-            <p style={{ fontSize: 14, fontWeight: 700, color: serverResult.allValid ? '#22c55e' : '#ef4444' }}>
-              {serverResult.allValid
-                ? `🔐 All ${serverResult.total} valid`
-                : `✗ ${serverResult.failed} of ${serverResult.total} failed`}
-            </p>
-          </div>
-        )}
+        {serverResult && (() => {
+          const unannotated = serverResult.failed - serverResult.annotated
+          const allAcknowledged = serverResult.failed > 0 && unannotated === 0
+          const color = serverResult.allValid ? '#22c55e' : allAcknowledged ? '#f59e0b' : '#ef4444'
+          return (
+            <div className="gs" style={{ flex: 1, minWidth: 140, padding: '14px 18px', borderRadius: 10 }}>
+              <p style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>HMAC Verification</p>
+              <p style={{ fontSize: 14, fontWeight: 700, color }}>
+                {serverResult.allValid
+                  ? `🔐 All ${serverResult.total} valid`
+                  : allAcknowledged
+                    ? `⚠ ${serverResult.failed} acknowledged`
+                    : `✗ ${unannotated} of ${serverResult.total} failed`}
+              </p>
+              {allAcknowledged && (
+                <p style={{ fontSize: 9, color: '#64748b', marginTop: 3 }}>Chain break{serverResult.failed !== 1 ? 's' : ''} annotated by admin</p>
+              )}
+              {!serverResult.allValid && !allAcknowledged && serverResult.annotated > 0 && (
+                <p style={{ fontSize: 9, color: '#64748b', marginTop: 3 }}>{serverResult.annotated} annotated</p>
+              )}
+            </div>
+          )
+        })()}
         <button
           onClick={handleVerify}
           disabled={verifying || totalCount === 0}

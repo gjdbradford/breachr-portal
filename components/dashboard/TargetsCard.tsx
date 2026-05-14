@@ -20,9 +20,10 @@ const TYPE_DISPLAY: Record<string, { label: string; icon: string; color: string;
 interface TargetsCardProps {
   summaries: TargetTypeSummary[]
   totalCount: number
+  canCreate?: boolean
 }
 
-export default function TargetsCard({ summaries, totalCount }: TargetsCardProps) {
+export default function TargetsCard({ summaries, totalCount, canCreate = false }: TargetsCardProps) {
   return (
     <div style={{ background: 'rgba(13,20,40,0.7)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
@@ -34,8 +35,10 @@ export default function TargetsCard({ summaries, totalCount }: TargetsCardProps)
       </div>
       {summaries.length === 0 ? (
         <div style={{ padding: '20px 14px', textAlign: 'center' }}>
-          <p style={{ fontSize: 12, color: '#475569' }}>No targets added yet.</p>
-          <Link href="/onboarding" style={{ fontSize: 11, color: '#42a5f5' }}>Add a target →</Link>
+          <p style={{ fontSize: 12, color: '#475569', marginBottom: canCreate ? 6 : 0 }}>No targets added yet.</p>
+          {canCreate && (
+            <Link href="/dashboard/targets" style={{ fontSize: 11, color: '#42a5f5' }}>Add a target →</Link>
+          )}
         </div>
       ) : (
         summaries.map((s) => {
