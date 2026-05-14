@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { getPlan, fmtTokens } from '@/lib/plans'
+import { getPlan, fmtTokens, PLAN_TIER, TIER_CONFIG } from '@/lib/plans'
 
 function readCollapsed(): boolean {
   try { return localStorage.getItem('sidebar-collapsed') === 'true' } catch { return false }
@@ -239,11 +239,17 @@ export default function DashboardNav({
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: plan.color, display: 'inline-block' }} />
             <span style={{ fontSize: 10, fontWeight: 700, color: plan.color, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{plan.label}</span>
           </div>
-          {planId !== 'enterprise' && (
-            <Link href="/dashboard/upgrade" style={{ fontSize: 9, color: '#42a5f5', textDecoration: 'none', fontWeight: 600, letterSpacing: '0.04em' }}>
-              Upgrade ↑
-            </Link>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ fontSize: 9, padding: '2px 5px', borderRadius: 10, fontWeight: 700, letterSpacing: '0.05em', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8' }}>
+              {TIER_CONFIG[PLAN_TIER[(planId as import('@/lib/plans').PlanId) ?? 'free']].badge}{' '}
+              {TIER_CONFIG[PLAN_TIER[(planId as import('@/lib/plans').PlanId) ?? 'free']].label}
+            </span>
+            {planId !== 'enterprise' && (
+              <Link href="/dashboard/upgrade" style={{ fontSize: 9, color: '#42a5f5', textDecoration: 'none', fontWeight: 600, letterSpacing: '0.04em' }}>
+                ↑
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Scans meter */}
