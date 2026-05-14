@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { getPlan, fmtTokens, PLAN_TIER, TIER_CONFIG } from '@/lib/plans'
+import { getPlan, fmtTokens, PLAN_TIER, TIER_CONFIG, type PlanId } from '@/lib/plans'
 
 function readCollapsed(): boolean {
   try { return localStorage.getItem('sidebar-collapsed') === 'true' } catch { return false }
@@ -138,6 +138,9 @@ export default function DashboardNav({
     return () => { supabase.removeChannel(channel) }
   }, [tenantId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const tier = PLAN_TIER[planId as PlanId] ?? 'bronze'
+  const tierCfg = TIER_CONFIG[tier]
+
   const scansPct   = scansLimit   ? Math.min(100, (scansThisMonth / scansLimit) * 100)     : 0
   const tokensPct  = tokensLimit  ? Math.min(100, (tokensThisMonth / tokensLimit) * 100)    : 0
   const scansAtLimit  = scansPct >= 100
@@ -241,8 +244,7 @@ export default function DashboardNav({
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span style={{ fontSize: 9, padding: '2px 5px', borderRadius: 10, fontWeight: 700, letterSpacing: '0.05em', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8' }}>
-              {TIER_CONFIG[PLAN_TIER[(planId as import('@/lib/plans').PlanId) ?? 'free']].badge}{' '}
-              {TIER_CONFIG[PLAN_TIER[(planId as import('@/lib/plans').PlanId) ?? 'free']].label}
+              {tierCfg.badge} {tierCfg.label}
             </span>
             {planId !== 'enterprise' && (
               <Link href="/dashboard/upgrade" style={{ fontSize: 9, color: '#42a5f5', textDecoration: 'none', fontWeight: 600, letterSpacing: '0.04em' }}>
