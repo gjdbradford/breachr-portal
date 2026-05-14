@@ -18,10 +18,14 @@ const FRAMEWORK_LABELS: Record<Framework, { name: string; description: string }>
 export default function ComplianceTab({
   frameworks,
   tenantId,
+  lockedReason = null,
 }: {
   frameworks: string[]
   tenantId: string
+  lockedReason?: 'admin' | 'locked' | null
 }) {
+  const readOnly = lockedReason !== null
+
   const [selected, setSelected] = useState<Framework[]>(
     (frameworks ?? []).filter((f): f is Framework => (ALL_FRAMEWORKS as readonly string[]).includes(f))
   )
@@ -29,6 +33,7 @@ export default function ComplianceTab({
   const [saveMsg, setSaveMsg] = useState('')
 
   function toggle(fw: Framework) {
+    if (readOnly) return
     setSelected(prev => prev.includes(fw) ? prev.filter(f => f !== fw) : [...prev, fw])
   }
 
@@ -55,8 +60,19 @@ export default function ComplianceTab({
   return (
     <div style={{ maxWidth: 560 }}>
       <div className="gs au1" style={{ padding: 24 }}>
-        <h2 style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0', marginBottom: 8, letterSpacing: '0.04em' }}>COMPLIANCE FRAMEWORKS</h2>
-        <p style={{ fontSize: 13, color: '#64748b', marginBottom: 24 }}>Select the regulatory frameworks applicable to your organisation.</p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.04em' }}>COMPLIANCE FRAMEWORKS</h2>
+          {readOnly && (
+            <span style={{ fontSize: 11, color: '#64748b', padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              View only
+            </span>
+          )}
+        </div>
+        <p style={{ fontSize: 13, color: '#64748b', marginBottom: 24 }}>
+          {readOnly
+            ? 'Regulatory frameworks selected for your organisation.'
+            : 'Select the regulatory frameworks applicable to your organisation.'}
+        </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
           {ALL_FRAMEWORKS.map(fw => {
@@ -66,11 +82,14 @@ export default function ComplianceTab({
                 key={fw}
                 type="button"
                 onClick={() => toggle(fw)}
+                disabled={readOnly}
                 style={{
                   display: 'flex', alignItems: 'flex-start', gap: 12, padding: 16,
                   background: isSelected ? 'rgba(25,118,210,0.1)' : 'rgba(255,255,255,0.03)',
                   border: `1px solid ${isSelected ? 'rgba(25,118,210,0.5)' : 'rgba(255,255,255,0.06)'}`,
-                  borderRadius: 8, cursor: 'pointer', textAlign: 'left', width: '100%',
+                  borderRadius: 8, cursor: readOnly ? 'default' : 'pointer',
+                  textAlign: 'left', width: '100%',
+                  opacity: readOnly && !isSelected ? 0.45 : 1,
                 }}
               >
                 <div style={{
@@ -94,18 +113,34 @@ export default function ComplianceTab({
           })}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <button onClick={handleSave} className="btn-p" style={{ fontSize: 13, padding: '8px 20px' }} disabled={saving}>
-            {saving ? 'Saving…' : 'Save changes'}
-          </button>
-          {saveMsg && (
-            <span style={{ fontSize: 13, color: saveMsg.startsWith('Error') ? '#ef4444' : '#22c55e' }}>{saveMsg}</span>
-          )}
-        </div>
+        {!readOnly && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <button onClick={handleSave} className="btn-p" style={{ fontSize: 13, padding: '8px 20px' }} disabled={saving}>
+                {saving ? 'Saving…' : 'Save changes'}
+              </button>
+              {saveMsg && (
+                <span style={{ fontSize: 13, color: saveMsg.startsWith('Error') ? '#ef4444' : '#22c55e' }}>{saveMsg}</span>
+              )}
+            </div>
+            <p style={{ fontSize: 12, color: '#475569', fontStyle: 'italic' }}>
+              Changes take effect on your next scan. Existing reports are not modified.
+            </p>
+          </>
+        )}
 
-        <p style={{ fontSize: 12, color: '#475569', fontStyle: 'italic' }}>
-          Changes take effect on your next scan. Existing reports are not modified.
-        </p>
+        {lockedReason === 'locked' && (
+          <div style={{ padding: '12px 16px', background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8, fontSize: 12, color: '#94a3b8' }}>
+            Compliance frameworks are locked once set. To make changes, contact{' '}
+            <a href="mailto:support@breachr.ai" style={{ color: '#42a5f5' }}>support@breachr.ai</a>.
+          </div>
+        )}
+
+        {lockedReason === 'admin' && (
+          <p style={{ fontSize: 12, color: '#475569' }}>
+            Only the account owner can change compliance settings.
+          </p>
+        )}
       </div>
     </div>
   )

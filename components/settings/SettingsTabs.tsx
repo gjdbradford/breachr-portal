@@ -61,8 +61,16 @@ export default function SettingsTabs({
         ))}
       </div>
 
-      {activeTab === 'profile'     && <ProfileTab tenant={tenant} user={user} tenantId={tenantId} currentUserId={currentUserId} />}
-      {activeTab === 'compliance'  && <ComplianceTab frameworks={tenant.compliance_frameworks} tenantId={tenantId} />}
+      {activeTab === 'profile'     && <ProfileTab tenant={tenant} user={user} tenantId={tenantId} currentUserId={currentUserId} companyReadOnly={!isOwner} />}
+      {activeTab === 'compliance'  && <ComplianceTab
+        frameworks={tenant.compliance_frameworks}
+        tenantId={tenantId}
+        lockedReason={
+          !isOwner ? 'admin'
+          : (tenant.compliance_frameworks ?? []).length > 0 ? 'locked'
+          : null
+        }
+      />}
       {activeTab === 'team'        && <TeamTab currentUserId={currentUserId} currentUserRole={user.role} canInvite={canInvite} timezone={tenant.timezone ?? 'UTC'} />}
       {activeTab === 'permissions' && isOwner && <PermissionsTab />}
       {activeTab === 'subscription' && <SubscriptionTab data={subscription} />}

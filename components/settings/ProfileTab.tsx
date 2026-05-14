@@ -285,11 +285,13 @@ export default function ProfileTab({
   user,
   tenantId,
   currentUserId,
+  companyReadOnly = false,
 }: {
   tenant: TenantProfile
   user: UserProfile
   tenantId: string
   currentUserId: string
+  companyReadOnly?: boolean
 }) {
   const [name, setName]               = useState(tenant.name ?? '')
   const [industry, setIndustry]       = useState(tenant.industry ?? '')
@@ -383,46 +385,76 @@ export default function ProfileTab({
 
       {/* Company */}
       <div className="gs au1" style={{ padding: 24, marginBottom: 24 }}>
-        <h2 style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0', marginBottom: 20, letterSpacing: '0.04em' }}>COMPANY</h2>
-        <form onSubmit={handleSave}>
-          <div style={{ marginBottom: 16 }}>
-            <label className="form-label">Company Name</label>
-            <input className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="Acme Financial" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.04em' }}>COMPANY</h2>
+          {companyReadOnly && (
+            <span style={{ fontSize: 11, color: '#64748b', padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              View only
+            </span>
+          )}
+        </div>
+
+        {companyReadOnly ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {[
+              { label: 'Company Name', value: name || '—' },
+              { label: 'Industry', value: INDUSTRIES.find(i => i.value === industry)?.label || '—' },
+              { label: 'Company Size', value: companySize || '—' },
+              { label: 'Country', value: COUNTRIES.find(c => c.code === countryCode)?.name || '—' },
+              { label: 'Timezone', value: timezone || '—' },
+            ].map(({ label, value }) => (
+              <div key={label}>
+                <label className="form-label">{label}</label>
+                <div style={{ padding: '9px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 6, fontSize: 13, color: '#94a3b8' }}>
+                  {value}
+                </div>
+              </div>
+            ))}
+            <p style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>
+              Only the account owner can edit company information.
+            </p>
           </div>
-          <div style={{ marginBottom: 16 }}>
-            <label className="form-label">Industry</label>
-            <select className="form-input" value={industry} onChange={e => setIndustry(e.target.value)}>
-              <option value="">Select industry</option>
-              {INDUSTRIES.map(({ value, label }) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label className="form-label">Company Size</label>
-            <select className="form-input" value={companySize} onChange={e => setCompanySize(e.target.value)}>
-              <option value="">Select size</option>
-              {SIZES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label className="form-label">Country</label>
-            <CountryPicker value={countryCode} onChange={setCountryCode} />
-          </div>
-          <div style={{ marginBottom: 20 }}>
-            <label className="form-label">Timezone</label>
-            <TimezonePicker value={timezone} onChange={setTimezone} />
-            <p style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>All timestamps in the portal will display in this timezone.</p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button type="submit" className="btn-p" style={{ fontSize: 13, padding: '8px 20px' }} disabled={saving}>
-              {saving ? 'Saving…' : 'Save changes'}
-            </button>
-            {saveMsg && (
-              <span style={{ fontSize: 13, color: saveMsg.startsWith('Error') ? '#ef4444' : '#22c55e' }}>{saveMsg}</span>
-            )}
-          </div>
-        </form>
+        ) : (
+          <form onSubmit={handleSave}>
+            <div style={{ marginBottom: 16 }}>
+              <label className="form-label">Company Name</label>
+              <input className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="Acme Financial" />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label className="form-label">Industry</label>
+              <select className="form-input" value={industry} onChange={e => setIndustry(e.target.value)}>
+                <option value="">Select industry</option>
+                {INDUSTRIES.map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label className="form-label">Company Size</label>
+              <select className="form-input" value={companySize} onChange={e => setCompanySize(e.target.value)}>
+                <option value="">Select size</option>
+                {SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label className="form-label">Country</label>
+              <CountryPicker value={countryCode} onChange={setCountryCode} />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label className="form-label">Timezone</label>
+              <TimezonePicker value={timezone} onChange={setTimezone} />
+              <p style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>All timestamps in the portal will display in this timezone.</p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button type="submit" className="btn-p" style={{ fontSize: 13, padding: '8px 20px' }} disabled={saving}>
+                {saving ? 'Saving…' : 'Save changes'}
+              </button>
+              {saveMsg && (
+                <span style={{ fontSize: 13, color: saveMsg.startsWith('Error') ? '#ef4444' : '#22c55e' }}>{saveMsg}</span>
+              )}
+            </div>
+          </form>
+        )}
       </div>
 
       {/* Personal */}
