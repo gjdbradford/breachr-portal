@@ -101,6 +101,12 @@ export default function InviteAcceptPage() {
 
     if (profileErr) { setError(profileErr); setLoading(false); return }
 
+    fetch('/api/events/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: 'user.logged_in' }),
+    }).catch(() => {})
+
     router.push('/dashboard')
   }
 
