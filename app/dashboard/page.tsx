@@ -46,10 +46,7 @@ export default async function DashboardPage() {
     { data: allSurfaces },
     { data: findingsPerSurface },
     { data: sensors },
-    { count: inventoryTotal },
-    { count: inventoryUnreviewed },
-    { count: inventoryServers },
-    { count: inventoryServices },
+    { data: inventoryAssets },
   ] = await Promise.all([
     supabase.from('scans').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'running'),
     supabase.from('scans').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'complete'),
@@ -67,10 +64,7 @@ export default async function DashboardPage() {
     supabase.from('attack_surfaces').select('id,target_type').eq('tenant_id', tenantId).eq('active', true),
     supabase.from('findings').select('attack_surface_id,severity').eq('tenant_id', tenantId).in('status', ['open', 'in_progress']),
     supabase.from('sensors').select('id,name,status,location').eq('tenant_id', tenantId).order('name'),
-    supabase.from('assets').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('is_active', true),
-    supabase.from('assets').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('is_active', true).is('acknowledged_at', null),
-    supabase.from('assets').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('is_active', true).eq('asset_type', 'server'),
-    supabase.from('assets').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('is_active', true).eq('asset_type', 'service'),
+    supabase.from('assets').select('risk_score,acknowledged_at').eq('tenant_id', tenantId),
   ])
 
   const hasScans = (completedScans ?? 0) > 0
@@ -152,6 +146,19 @@ export default async function DashboardPage() {
   }
   const targetSummaries: TargetTypeSummary[] = Object.entries(typeMap).map(([type, counts]) => ({ type, ...counts }))
 
+  // Inventory risk breakdown — matches inventory page classification (all assets, not just active)
+  type AssetRow = { risk_score: number | null; acknowledged_at: string | null }
+  const inventoryTotal = (inventoryAssets ?? []).length
+  const inventoryUnreviewed = (inventoryAssets ?? []).filter((a: AssetRow) => !a.acknowledged_at).length
+  const inventoryRisk = { critical: 0, high: 0, medium: 0, low: 0 }
+  for (const a of (inventoryAssets ?? []) as AssetRow[]) {
+    const score = a.risk_score ?? 0
+    if      (score >= 80) inventoryRisk.critical++
+    else if (score >= 50) inventoryRisk.high++
+    else if (score >= 20) inventoryRisk.medium++
+    else if (score >  0)  inventoryRisk.low++
+  }
+
   return (
     <div className="portal-content">
 
@@ -220,10 +227,9 @@ export default async function DashboardPage() {
           <TargetsCard summaries={targetSummaries} totalCount={surfaceCount} canCreate={resolved['scans.create']} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <InventoryMiniCard
-              total={inventoryTotal ?? 0}
-              servers={inventoryServers ?? 0}
-              services={inventoryServices ?? 0}
-              unreviewed={inventoryUnreviewed ?? 0}
+              total={inventoryTotal}
+              unreviewed={inventoryUnreviewed}
+              riskCounts={inventoryRisk}
             />
             <SensorsMiniCard sensors={sensors ?? []} />
           </div>
