@@ -121,7 +121,7 @@ export const DEVELOPER_DEFAULTS: Record<Permission, boolean> = {
   'assets.update':               false,
   'assets.archive':              false,
   'reports.read.scan':           true,
-  'reports.read.organizational': false,
+  'reports.read.organizational': true,
   'reports.read.executive':      false,
   'reports.read.board':          false,
   'reports.generate':            false,
