@@ -187,3 +187,20 @@ body.sidebar-collapsed .portal-main { margin-left:48px; }
 }
 .onboarding-step-dot { height:4px; flex:1; border-radius:2px; background:rgba(25,118,210,0.2); transition:background 0.3s; }
 .onboarding-step-dot.done, .onboarding-step-dot.active { background:#42a5f5; }
+
+@keyframes guide-dot-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.8); }
+  50%       { opacity: 1;   transform: scale(1.2); }
+}
+
+.guide-target-pulse {
+  outline: 2px dashed rgba(66, 165, 245, 0.8) !important;
+  outline-offset: 3px !important;
+  border-radius: 6px;
+  animation: guide-target-pulse-anim 1.5s ease-in-out infinite;
+}
+
+@keyframes guide-target-pulse-anim {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(66,165,245,0.5), 0 0 12px rgba(66,165,245,0.2); }
+  50%       { box-shadow: 0 0 0 5px rgba(66,165,245,0.2), 0 0 20px rgba(66,165,245,0.4); }
+}
