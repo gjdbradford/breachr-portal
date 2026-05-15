@@ -6,6 +6,8 @@ import { resolvePermissions } from '@/lib/resolve-permissions'
 import { sendTeamInviteEmail } from '@/lib/email'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const INVITABLE_ROLES = ['admin', 'member', 'viewer', 'developer'] as const
+type InvitableRole = typeof INVITABLE_ROLES[number]
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -27,6 +29,11 @@ export async function POST(req: NextRequest) {
   const { email } = body
   if (!email || !EMAIL_RE.test(email)) {
     return NextResponse.json({ error: 'Valid email required' }, { status: 400 })
+  }
+
+  const role = (body.role ?? 'member') as string
+  if (!INVITABLE_ROLES.includes(role as InvitableRole)) {
+    return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
   }
 
   // Check: already a member of THIS tenant
@@ -64,7 +71,7 @@ export async function POST(req: NextRequest) {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
   const { data: invitation, error: insertError } = await admin
     .from('invitations')
-    .insert({ tenant_id: profile.tenant_id, email, invited_by: user.id, role: 'admin', expires_at: expiresAt })
+    .insert({ tenant_id: profile.tenant_id, email, invited_by: user.id, role, expires_at: expiresAt })
     .select('id')
     .single()
 
@@ -83,7 +90,7 @@ export async function POST(req: NextRequest) {
     if (!useGenerateLink) {
       // New user: Supabase sends the invite email with a link to set up their account.
       const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-        data: { invited_tenant_id: profile.tenant_id, role: 'admin' },
+        data: { invited_tenant_id: profile.tenant_id, role },
         redirectTo: `${origin}/invite/confirm?invite_id=${invitation.id}`,
       })
       if (inviteError) {
@@ -136,7 +143,7 @@ export async function POST(req: NextRequest) {
     tenantId: profile.tenant_id,
     userId:   user.id,
     action:   'user.invited',
-    detail:   { invited_email: email, role: 'admin', expires_at: expiresAt, reinvited },
+    detail:   { invited_email: email, role, expires_at: expiresAt, reinvited },
   }).catch(() => {})
 
   return NextResponse.json({ ok: true, reinvited })

@@ -22,9 +22,11 @@ interface Invitation {
 }
 
 const ROLE_BADGE: Record<string, { label: string; bg: string; color: string; border: string }> = {
-  account_owner: { label: 'Owner',  bg: 'rgba(99,102,241,0.1)',  color: '#818cf8', border: 'rgba(99,102,241,0.3)' },
-  admin:         { label: 'Admin',  bg: 'rgba(59,130,246,0.1)',  color: '#60a5fa', border: 'rgba(59,130,246,0.3)' },
-  member:        { label: 'Member', bg: 'rgba(100,116,139,0.1)', color: '#94a3b8', border: 'rgba(100,116,139,0.3)' },
+  account_owner: { label: 'Owner',     bg: 'rgba(99,102,241,0.1)',  color: '#818cf8', border: 'rgba(99,102,241,0.3)' },
+  admin:         { label: 'Admin',     bg: 'rgba(59,130,246,0.1)',  color: '#60a5fa', border: 'rgba(59,130,246,0.3)' },
+  member:        { label: 'Member',    bg: 'rgba(100,116,139,0.1)', color: '#94a3b8', border: 'rgba(100,116,139,0.3)' },
+  viewer:        { label: 'Viewer',    bg: 'rgba(16,185,129,0.1)',  color: '#34d399', border: 'rgba(16,185,129,0.3)' },
+  developer:     { label: 'Developer', bg: 'rgba(245,158,11,0.1)',  color: '#fbbf24', border: 'rgba(245,158,11,0.3)' },
 }
 
 function RoleBadge({ role }: { role: string }) {
@@ -57,6 +59,7 @@ export default function TeamTab({
   const [invitations, setInvitations]       = useState<Invitation[]>([])
   const [loading, setLoading]               = useState(true)
   const [inviteEmail, setInviteEmail]       = useState('')
+  const [inviteRole, setInviteRole]         = useState<string>('member')
   const [inviting, setInviting]             = useState(false)
   const [showInviteForm, setShowInviteForm] = useState(false)
   const [error, setError]                   = useState('')
@@ -83,7 +86,7 @@ export default function TeamTab({
     const res = await fetch('/api/team/invite', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: inviteEmail }),
+      body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
     })
     if (res.ok) {
       const data = await res.json().catch(() => ({}))
@@ -161,7 +164,7 @@ export default function TeamTab({
             className="btn-p"
             style={{ fontSize: 12, padding: '6px 16px' }}
           >
-            + Invite Admin
+            + Invite Member
           </button>
         )}
       </div>
@@ -181,6 +184,20 @@ export default function TeamTab({
               placeholder="colleague@company.com"
               style={{ marginTop: 4 }}
             />
+          </div>
+          <div>
+            <label className="form-label">Role</label>
+            <select
+              value={inviteRole}
+              onChange={e => setInviteRole(e.target.value)}
+              className="form-input"
+              style={{ marginTop: 4 }}
+            >
+              <option value="admin">Admin</option>
+              <option value="member">Member</option>
+              <option value="viewer">Viewer</option>
+              <option value="developer">Developer</option>
+            </select>
           </div>
           <button type="submit" className="btn-p" style={{ fontSize: 12, padding: '8px 16px' }} disabled={inviting}>
             {inviting ? 'Sending…' : 'Send Invite'}

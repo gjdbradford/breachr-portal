@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as adminClient } from '@supabase/supabase-js'
 
-const VALID_ROLES = new Set(['admin', 'member'])
+const VALID_ROLES = new Set(['admin', 'member', 'viewer', 'developer'])
 
 export async function PATCH(
   req: NextRequest,
@@ -26,7 +26,7 @@ export async function PATCH(
   const body = await req.json().catch(() => ({}))
   const { role } = body
   if (!VALID_ROLES.has(role)) {
-    return NextResponse.json({ error: 'role must be admin or member' }, { status: 400 })
+    return NextResponse.json({ error: 'role must be admin, member, viewer, or developer' }, { status: 400 })
   }
 
   const { data: target } = await admin
