@@ -81,6 +81,60 @@ export const MEMBER_DEFAULTS: Record<Permission, boolean> = {
   'team.invite':                false,
 }
 
+export const VIEWER_DEFAULTS: Record<Permission, boolean> = {
+  'scans.create':                false,
+  'scans.read':                  false,
+  'scans.update':                false,
+  'scans.archive':               false,
+  'findings.read':               true,
+  'findings.update':             false,
+  'findings.archive':            false,
+  'assets.create':               false,
+  'assets.read':                 true,
+  'assets.update':               false,
+  'assets.archive':              false,
+  'reports.read.scan':           true,
+  'reports.read.organizational': true,
+  'reports.read.executive':      false,
+  'reports.read.board':          false,
+  'reports.generate':            false,
+  'reports.export':              false,
+  'exports.create':              false,
+  'exports.read':                true,
+  'remediation.read':            true,
+  'remediation.update':          false,
+  'audit.read':                  false,
+  'team.read':                   false,
+  'team.invite':                 false,
+}
+
+export const DEVELOPER_DEFAULTS: Record<Permission, boolean> = {
+  'scans.create':                false,
+  'scans.read':                  true,
+  'scans.update':                false,
+  'scans.archive':               false,
+  'findings.read':               true,
+  'findings.update':             false,
+  'findings.archive':            false,
+  'assets.create':               false,
+  'assets.read':                 true,
+  'assets.update':               false,
+  'assets.archive':              false,
+  'reports.read.scan':           true,
+  'reports.read.organizational': false,
+  'reports.read.executive':      false,
+  'reports.read.board':          false,
+  'reports.generate':            false,
+  'reports.export':              false,
+  'exports.create':              false,
+  'exports.read':                true,
+  'remediation.read':            true,
+  'remediation.update':          false,
+  'audit.read':                  true,
+  'team.read':                   false,
+  'team.invite':                 false,
+}
+
 export const PERMISSION_GROUPS: Array<{
   label: string
   permissions: Array<{ key: Permission; label: string }>
@@ -161,5 +215,8 @@ export function can(
 }
 
 export function defaultPermissionsForRole(role: string): Record<Permission, boolean> {
-  return role === 'admin' ? { ...ADMIN_DEFAULTS } : { ...MEMBER_DEFAULTS }
+  if (role === 'admin')     return { ...ADMIN_DEFAULTS }
+  if (role === 'viewer')    return { ...VIEWER_DEFAULTS }
+  if (role === 'developer') return { ...DEVELOPER_DEFAULTS }
+  return { ...MEMBER_DEFAULTS }
 }

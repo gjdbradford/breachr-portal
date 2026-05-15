@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { ALL_PERMISSIONS, ADMIN_DEFAULTS, MEMBER_DEFAULTS, type Permission } from './permissions'
+import { ALL_PERMISSIONS, ADMIN_DEFAULTS, MEMBER_DEFAULTS, VIEWER_DEFAULTS, DEVELOPER_DEFAULTS, type Permission } from './permissions'
 
 type ModuleConfig = { access_mode: string; trial_days: number | null }
 type TrialState = { expires_at: string }
@@ -57,6 +57,13 @@ function makeAdmin() {
   )
 }
 
+function getCodeDefaults(role: string): Record<Permission, boolean> {
+  if (role === 'admin')     return ADMIN_DEFAULTS
+  if (role === 'viewer')    return VIEWER_DEFAULTS
+  if (role === 'developer') return DEVELOPER_DEFAULTS
+  return MEMBER_DEFAULTS
+}
+
 export async function resolvePermissions(supabaseUserId: string): Promise<Record<Permission, boolean>> {
   const admin = makeAdmin()
 
@@ -91,7 +98,7 @@ export async function resolvePermissions(supabaseUserId: string): Promise<Record
     return result as Record<Permission, boolean>
   }
 
-  const codeDefaults = user.role === 'admin' ? ADMIN_DEFAULTS : MEMBER_DEFAULTS
+  const codeDefaults = getCodeDefaults(user.role)
 
   const { data: roleRows } = await admin
     .from('role_permissions')
