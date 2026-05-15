@@ -118,11 +118,6 @@ export default function GuideRenderer() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-      {/* Progress bar */}
-      <div style={{ height: 3, background: 'rgba(255,255,255,0.05)', flexShrink: 0 }}>
-        <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg,#1976d2,#42a5f5)', borderRadius: '0 2px 2px 0', transition: 'width 0.4s' }} />
-      </div>
-
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {/* Step overview list */}
         <div style={{ padding: '12px 16px 4px' }}>
@@ -183,6 +178,11 @@ export default function GuideRenderer() {
             )}
           </div>
         )}
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ height: 3, background: 'rgba(255,255,255,0.05)', flexShrink: 0 }}>
+        <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg,#1976d2,#42a5f5)', borderRadius: '0 2px 2px 0', transition: 'width 0.4s' }} />
       </div>
 
       {/* Nav bar */}
