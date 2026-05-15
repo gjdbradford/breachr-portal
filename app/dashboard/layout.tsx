@@ -5,7 +5,9 @@ import DashboardNav from '@/components/DashboardNav'
 import TopHeader from '@/components/TopHeader'
 import HelpPanel from '@/components/HelpPanel'
 import SurveyBanner from '@/components/SurveyBanner'
+import ConfettiCanvas from '@/components/ConfettiCanvas'
 import { HelpPanelProvider } from '@/lib/help-panel-context'
+import { GuideProvider } from '@/lib/guide-context'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -56,35 +58,39 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <HelpPanelProvider>
-      <div style={{ display: 'flex', minHeight: '100vh', background: '#0a0e1a' }}>
-        <TopHeader
-          email={user.email ?? ''}
-          firstName={profile.first_name ?? null}
-          lastName={profile.last_name ?? null}
-          role={profile.role ?? 'member'}
-        />
-        <DashboardNav
-          tenantName={tenant?.name ?? 'My Company'}
-          plan={tenant?.plan ?? 'free'}
-          scansThisMonth={scansThisMonthCount ?? 0}
-          scansLimit={tenant?.plan_scans_limit ?? 3}
-          tokensThisMonth={tenant?.tokens_used_this_month ?? 0}
-          tokensLimit={tenant?.plan_tokens_limit ?? 200000}
-          isSuperuser={profile.is_superuser ?? false}
-          tenantId={profile.tenant_id}
-          initialActiveScans={activeScansCount ?? 0}
-          initialUnackedAssets={unackedAssetsCount ?? 0}
-          showAudit={resolved['audit.read']}
-          showScans={resolved['scans.read']}
-          showFindings={resolved['findings.read']}
-          showInventory={resolved['assets.read']}
-        />
-        <main className="portal-main">
-          {children}
-        </main>
-        <HelpPanel />
-        <SurveyBanner />
-      </div>
+      <ConfettiCanvas>
+        <GuideProvider userId={user.id} userRole={profile.role ?? 'member'}>
+          <div style={{ display: 'flex', minHeight: '100vh', background: '#0a0e1a' }}>
+            <TopHeader
+              email={user.email ?? ''}
+              firstName={profile.first_name ?? null}
+              lastName={profile.last_name ?? null}
+              role={profile.role ?? 'member'}
+            />
+            <DashboardNav
+              tenantName={tenant?.name ?? 'My Company'}
+              plan={tenant?.plan ?? 'free'}
+              scansThisMonth={scansThisMonthCount ?? 0}
+              scansLimit={tenant?.plan_scans_limit ?? 3}
+              tokensThisMonth={tenant?.tokens_used_this_month ?? 0}
+              tokensLimit={tenant?.plan_tokens_limit ?? 200000}
+              isSuperuser={profile.is_superuser ?? false}
+              tenantId={profile.tenant_id}
+              initialActiveScans={activeScansCount ?? 0}
+              initialUnackedAssets={unackedAssetsCount ?? 0}
+              showAudit={resolved['audit.read']}
+              showScans={resolved['scans.read']}
+              showFindings={resolved['findings.read']}
+              showInventory={resolved['assets.read']}
+            />
+            <main className="portal-main">
+              {children}
+            </main>
+            <HelpPanel />
+            <SurveyBanner />
+          </div>
+        </GuideProvider>
+      </ConfettiCanvas>
     </HelpPanelProvider>
   )
 }

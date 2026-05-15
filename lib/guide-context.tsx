@@ -52,6 +52,11 @@ export function useGuide() {
   return ctx
 }
 
+/** Returns null when called outside a GuideProvider — safe for optional consumers. */
+export function useOptionalGuide(): GuideContextValue | null {
+  return useContext(GuideContext)
+}
+
 export function GuideProvider({ userId, userRole, children }: {
   userId: string
   userRole: string

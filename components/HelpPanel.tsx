@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useHelpPanel } from '@/lib/help-panel-context'
+import { useOptionalGuide } from '@/lib/guide-context'
+import GuideRenderer from '@/components/GuideRenderer'
 
 interface Message {
   id: string
@@ -21,7 +23,8 @@ function capHistory(msgs: Message[]): Message[] {
 }
 
 export default function HelpPanel() {
-  const { isOpen, close, config } = useHelpPanel()
+  const { isOpen, close, config, pendingTab, clearPendingTab } = useHelpPanel()
+  const guide = useOptionalGuide()
   const [activeTab, setActiveTab] = useState<'chat' | 'guides' | 'videos'>('chat')
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -39,6 +42,18 @@ export default function HelpPanel() {
   useEffect(() => {
     if (config?.defaultTab) setActiveTab(config.defaultTab)
   }, [config?.defaultTab])
+
+  useEffect(() => {
+    if (pendingTab) {
+      setActiveTab(pendingTab)
+      clearPendingTab()
+    }
+  }, [pendingTab, clearPendingTab])
+
+  function handleClose() {
+    guide?.dismissGuide()
+    close()
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -113,7 +128,7 @@ export default function HelpPanel() {
           </div>
           <button
             type="button"
-            onClick={close}
+            onClick={handleClose}
             aria-label="Close help panel"
             style={{ fontSize: 18, color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}
           >
@@ -208,24 +223,7 @@ export default function HelpPanel() {
         )}
 
         {/* Guides tab */}
-        {activeTab === 'guides' && (
-          <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px' }}>
-            {(config?.guides ?? []).length === 0 ? (
-              <p style={{ fontSize: 12, color: '#334155', textAlign: 'center', padding: '32px 0', fontStyle: 'italic' }}>No guides available for this page yet.</p>
-            ) : (
-              config?.guides?.map((g, i) => (
-                <div key={i} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                  {g.href ? (
-                    <a href={g.href} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, fontWeight: 600, color: '#42a5f5', textDecoration: 'none' }}>{g.title}</a>
-                  ) : (
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>{g.title}</div>
-                  )}
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>{g.description}</div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
+        {activeTab === 'guides' && <GuideRenderer />}
 
         {/* Videos tab */}
         {activeTab === 'videos' && (
