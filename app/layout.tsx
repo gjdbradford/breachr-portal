@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { Orbitron, Work_Sans } from 'next/font/google'
+import { Suspense } from 'react'
 import './globals.css'
+import InspectorOverlay from '@/components/InspectorOverlay'
 
 const orbitron = Orbitron({
   variable: '--font-orbitron',
@@ -23,7 +25,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${orbitron.variable} ${workSans.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Suspense>
+          <InspectorOverlay />
+        </Suspense>
+      </body>
     </html>
   )
 }
