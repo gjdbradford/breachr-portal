@@ -6,8 +6,9 @@ import ComplianceTab from './ComplianceTab'
 import TeamTab from './TeamTab'
 import PermissionsTab from './PermissionsTab'
 import SubscriptionTab, { type SubscriptionData } from './SubscriptionTab'
+import IntegrationsTab from './IntegrationsTab'
 
-type Tab = 'profile' | 'compliance' | 'team' | 'permissions' | 'subscription'
+type Tab = 'profile' | 'compliance' | 'team' | 'permissions' | 'subscription' | 'integrations'
 
 const TAB_LABELS: Record<Tab, string> = {
   profile:      'Profile',
@@ -15,6 +16,7 @@ const TAB_LABELS: Record<Tab, string> = {
   team:         'Team',
   permissions:  'Permissions',
   subscription: 'Subscription',
+  integrations: 'Integrations',
 }
 
 export default function SettingsTabs({
@@ -40,7 +42,7 @@ export default function SettingsTabs({
   const tabs: Tab[] = role === 'developer'
     ? ['profile']
     : isOwner
-      ? ['profile', 'compliance', 'team', 'permissions', 'subscription']
+      ? ['profile', 'compliance', 'team', 'permissions', 'subscription', 'integrations']
       : (['profile', 'compliance', showTeam ? 'team' : null, 'subscription'] as Array<Tab | null>).filter((t): t is Tab => t !== null)
 
   const [activeTab, setActiveTab] = useState<Tab>('profile')
@@ -78,6 +80,7 @@ export default function SettingsTabs({
       {activeTab === 'team'        && <TeamTab currentUserId={currentUserId} currentUserRole={user.role} canInvite={canInvite} timezone={tenant.timezone ?? 'UTC'} />}
       {activeTab === 'permissions' && isOwner && <PermissionsTab />}
       {activeTab === 'subscription' && <SubscriptionTab data={subscription} isOwner={isOwner} />}
+      {activeTab === 'integrations' && isOwner && <IntegrationsTab />}
     </div>
   )
 }
