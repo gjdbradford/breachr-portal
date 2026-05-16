@@ -65,13 +65,32 @@ export default function TeamTab({
   const [error, setError]                   = useState('')
   const [success, setSuccess]               = useState('')
 
+  type Workload = {
+    id: string
+    activeBatches: number
+    open: number
+    inProgress: number
+    reviewRequested: number
+    aiMessagesToday: number
+  }
+  const [workload, setWorkload] = useState<Record<string, Workload>>({})
+
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/team')
-    if (res.ok) {
-      const data = await res.json()
+    const [teamRes, workloadRes] = await Promise.all([
+      fetch('/api/team'),
+      fetch('/api/team/workload'),
+    ])
+    if (teamRes.ok) {
+      const data = await teamRes.json()
       setMembers(data.members)
       setInvitations(data.invitations)
+    }
+    if (workloadRes.ok) {
+      const data = await workloadRes.json()
+      const map: Record<string, Workload> = {}
+      for (const w of data.workload ?? []) map[w.id] = w
+      setWorkload(map)
     }
     setLoading(false)
   }, [])
@@ -233,6 +252,25 @@ export default function TeamTab({
                     {m.email}
                     {m.id === currentUserId && <span style={{ marginLeft: 6 }}>(you)</span>}
                   </span>
+                  {m.role === 'developer' && workload[m.id] && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 10, color: '#64748b' }}>
+                        {workload[m.id].activeBatches} batch{workload[m.id].activeBatches !== 1 ? 'es' : ''}
+                      </span>
+                      {(workload[m.id].open + workload[m.id].inProgress + workload[m.id].reviewRequested) > 0 && (
+                        <span style={{ fontSize: 10, color: '#64748b' }}>
+                          {workload[m.id].open > 0 && `${workload[m.id].open} open`}
+                          {workload[m.id].inProgress > 0 && ` · ${workload[m.id].inProgress} in progress`}
+                          {workload[m.id].reviewRequested > 0 && (
+                            <span style={{ color: '#f97316' }}> · {workload[m.id].reviewRequested} awaiting review</span>
+                          )}
+                        </span>
+                      )}
+                      <span style={{ fontSize: 10, color: workload[m.id].aiMessagesToday >= 16 ? '#f97316' : '#64748b' }}>
+                        AI: {workload[m.id].aiMessagesToday}/20 today
+                      </span>
+                    </div>
+                  )}
                 </td>
                 <td style={cell}><RoleBadge role={m.role} /></td>
                 <td style={cell}>{formatFriendly(m.created_at, timezone)}</td>
