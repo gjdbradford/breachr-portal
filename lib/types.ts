@@ -158,8 +158,8 @@ export interface RemediationStatusLogEntry {
   id: string
   task_id: string
   tenant_id: string
-  from_status: string
-  to_status: string
+  from_status: RemediationTaskStatus
+  to_status: RemediationTaskStatus
   changed_by: string | null
   source: RemediationStatusSource
   note: string | null
@@ -191,8 +191,8 @@ export interface TenantIntegration {
   tenant_id: string
   integration: 'jira'
   auth_method: IntegrationAuthMethod
-  jira_base_url: string
-  jira_workspace_name: string
+  jira_base_url: string | null
+  jira_workspace_name: string | null
   connected_by: string
   connected_at: string
   last_verified_at: string | null

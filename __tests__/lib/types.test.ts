@@ -10,6 +10,7 @@ import type {
   RemediationStatusLogEntry,
   RemediationAISession,
   TenantIntegration,
+  DeveloperOnboardingProgress,
 } from '@/lib/types'
 
 describe('RemediationTaskStatus', () => {
@@ -72,5 +73,73 @@ describe('RemediationTask shape', () => {
       updated_at: new Date().toISOString(),
     }
     expect(task.status).toBe('open')
+  })
+})
+
+describe('RemediationStatusLogEntry shape', () => {
+  it('accepts a valid log entry with typed statuses', () => {
+    const entry: RemediationStatusLogEntry = {
+      id: 'l1',
+      task_id: 't1',
+      tenant_id: 'tn1',
+      from_status: 'open',
+      to_status: 'in_progress',
+      changed_by: 'u1',
+      source: 'developer',
+      note: null,
+      scan_result_summary: null,
+      prev_hash: '0'.repeat(64),
+      signature: 'a'.repeat(64),
+      created_at: new Date().toISOString(),
+    }
+    expect(entry.from_status).toBe('open')
+  })
+})
+
+describe('RemediationAISession shape', () => {
+  it('accepts a valid AI session with message array', () => {
+    const session: RemediationAISession = {
+      id: 's1',
+      task_id: 't1',
+      tenant_id: 'tn1',
+      user_id: 'u1',
+      messages: [{ role: 'user', content: 'How do I fix this?', tokens: 10, timestamp: new Date().toISOString() }],
+      tokens_used: 10,
+      message_count: 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    expect(session.messages).toHaveLength(1)
+  })
+})
+
+describe('TenantIntegration shape', () => {
+  it('accepts a valid integration with nullable url fields', () => {
+    const integration: TenantIntegration = {
+      id: 'i1',
+      tenant_id: 'tn1',
+      integration: 'jira',
+      auth_method: 'oauth',
+      jira_base_url: null,
+      jira_workspace_name: null,
+      connected_by: 'u1',
+      connected_at: new Date().toISOString(),
+      last_verified_at: null,
+      created_at: new Date().toISOString(),
+    }
+    expect(integration.integration).toBe('jira')
+  })
+})
+
+describe('DeveloperOnboardingProgress shape', () => {
+  it('accepts a valid onboarding progress object', () => {
+    const progress: DeveloperOnboardingProgress = {
+      id: 'p1',
+      user_id: 'u1',
+      tenant_id: 'tn1',
+      completed_at: null,
+      steps_completed: ['profile', 'terms'],
+    }
+    expect(progress.steps_completed).toHaveLength(2)
   })
 })
