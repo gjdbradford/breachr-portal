@@ -20,13 +20,14 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('users').select('tenant_id').eq('supabase_uid', user.id).single()
+  const { data: profile } = await supabase.from('users').select('tenant_id, role').eq('supabase_uid', user.id).single()
   if (!profile) redirect('/login')
   const tenantId = profile.tenant_id
 
   const { data: tenant } = await supabase
     .from('tenants').select('name, onboarding_complete, plan, industry, scans_this_month, tokens_used_this_month, compliance_frameworks, node_count, ai_model_override, data_region').eq('id', tenantId).single()
   if (tenant && !tenant.onboarding_complete) redirect('/onboarding')
+  if (profile.role === 'developer') redirect('/dashboard/remediation')
 
   const [
     { count: activeScans },
