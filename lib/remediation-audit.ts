@@ -19,8 +19,9 @@ function hmacSha256Hex(key: string, data: string): string {
   return createHmac('sha256', Buffer.from(key, 'hex')).update(data, 'utf8').digest('hex')
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getPrevHash(
-  admin: ReturnType<typeof adminClient>,
+  admin: any,
   taskId: string,
   tenantId: string,
 ): Promise<string> {
@@ -31,7 +32,7 @@ async function getPrevHash(
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
     .limit(1)
-    .maybeSingle()
+    .maybeSingle() as { data: { signature: string } | null; error: unknown }
 
   if (!data?.signature) return GENESIS_HASH
   return sha256Hex(data.signature)
