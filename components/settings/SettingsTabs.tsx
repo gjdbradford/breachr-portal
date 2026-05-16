@@ -25,6 +25,7 @@ export default function SettingsTabs({
   canInvite,
   showTeam = true,
   subscription,
+  role = 'member',
 }: {
   tenant: TenantProfile & { compliance_frameworks: string[] }
   user: UserProfile
@@ -33,11 +34,14 @@ export default function SettingsTabs({
   canInvite?: boolean
   showTeam?: boolean
   subscription: SubscriptionData
+  role?: string
 }) {
   const isOwner = user.role === 'account_owner'
-  const tabs: Tab[] = isOwner
-    ? ['profile', 'compliance', 'team', 'permissions', 'subscription']
-    : (['profile', 'compliance', showTeam ? 'team' : null, 'subscription'] as Array<Tab | null>).filter((t): t is Tab => t !== null)
+  const tabs: Tab[] = role === 'developer'
+    ? ['profile']
+    : isOwner
+      ? ['profile', 'compliance', 'team', 'permissions', 'subscription']
+      : (['profile', 'compliance', showTeam ? 'team' : null, 'subscription'] as Array<Tab | null>).filter((t): t is Tab => t !== null)
 
   const [activeTab, setActiveTab] = useState<Tab>('profile')
 

@@ -101,6 +101,7 @@ export default async function SettingsPage() {
         canInvite={resolved['team.invite']}
         showTeam={resolved['team.read']}
         subscription={subscription}
+        role={profile.role}
       />
     </div>
   )
