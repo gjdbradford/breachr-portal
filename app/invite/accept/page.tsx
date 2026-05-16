@@ -178,7 +178,7 @@ export default function InviteAcceptPage() {
             <div style={{ marginBottom: 24, padding: '10px 12px', borderRadius: 8, background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 12, color: '#64748b' }}>Your role in {tenantName || 'this organisation'}</span>
               <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.2)', letterSpacing: '0.05em' }}>
-                ADMIN
+                {inviteRole.toUpperCase() || 'MEMBER'}
               </span>
             </div>
 
