@@ -70,9 +70,8 @@ CREATE INDEX IF NOT EXISTS idx_remediation_tasks_batch
   ON remediation_tasks(batch_id);
 CREATE INDEX IF NOT EXISTS idx_remediation_tasks_assigned
   ON remediation_tasks(assigned_to);
--- Note: idx_remediation_tasks_status (single column, low cardinality) was
--- replaced by the composite idx_remediation_tasks_tenant_status in the fixes
--- migration (20260516000001). The composite index is created there.
+CREATE INDEX IF NOT EXISTS idx_remediation_tasks_status
+  ON remediation_tasks(status);
 -- Note: updated_at trigger (remediation_tasks_updated_at) added in
 -- 20260516000001_remediation_foundation_fixes.sql
 
@@ -98,16 +97,8 @@ CREATE TABLE IF NOT EXISTS remediation_status_log (
   task_id             uuid NOT NULL REFERENCES remediation_tasks(id)
                            ON DELETE CASCADE,
   tenant_id           uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  from_status         text NOT NULL
-                           CHECK (from_status IN (
-                             'open','in_progress','review_requested',
-                             'verified_fixed','failed_verification','reopened'
-                           )),
-  to_status           text NOT NULL
-                           CHECK (to_status IN (
-                             'open','in_progress','review_requested',
-                             'verified_fixed','failed_verification','reopened'
-                           )),
+  from_status         text NOT NULL,
+  to_status           text NOT NULL,
   changed_by          uuid REFERENCES users(id),
   source              text NOT NULL
                            CHECK (source IN (
@@ -166,7 +157,7 @@ CREATE POLICY "Users read own AI sessions, admins read all"
 CREATE TABLE IF NOT EXISTS tenant_integrations (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id             uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  integration           text NOT NULL CHECK (integration IN ('jira')),
+  integration           text NOT NULL,
   auth_method           text NOT NULL CHECK (auth_method IN ('oauth','api_token')),
   encrypted_credentials jsonb NOT NULL DEFAULT '{}',
   jira_base_url         text,
@@ -196,7 +187,7 @@ CREATE TABLE IF NOT EXISTS developer_onboarding_progress (
   tenant_id       uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   completed_at    timestamptz,
   steps_completed text[] NOT NULL DEFAULT '{}',
-  UNIQUE(user_id, tenant_id)
+  UNIQUE(user_id)
 );
 
 ALTER TABLE developer_onboarding_progress ENABLE ROW LEVEL SECURITY;
