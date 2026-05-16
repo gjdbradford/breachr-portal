@@ -4,6 +4,7 @@ import { createClient as adminClient } from '@supabase/supabase-js'
 import { resolvePermissions } from '@/lib/resolve-permissions'
 import { can } from '@/lib/permissions'
 import TaskActionBar from '@/components/remediation/TaskActionBar'
+import AiAssistPanel from '@/components/remediation/AiAssistPanel'
 import Link from 'next/link'
 
 const SEV_COLOR: Record<string, string> = {
@@ -77,6 +78,34 @@ export default async function TaskDetailPage({
     for (const a of actors ?? []) {
       actorMap[a.id] = a.first_name ? `${a.first_name} ${a.last_name ?? ''}`.trim() : a.email
     }
+  }
+
+  // AI session — initial state for the panel
+  const { data: aiSession } = await admin
+    .from('remediation_ai_sessions')
+    .select('messages, tokens_used')
+    .eq('task_id', taskId)
+    .eq('user_id', profile.id)
+    .maybeSingle()
+
+  const sessionMessages = (aiSession?.messages ?? []) as Array<{
+    role: 'user' | 'assistant'; content: string; tokens: number; timestamp: string
+  }>
+
+  const todayStart = new Date()
+  todayStart.setUTCHours(0, 0, 0, 0)
+  const todayStartISO = todayStart.toISOString()
+
+  const { data: allUserSessions } = await admin
+    .from('remediation_ai_sessions')
+    .select('messages')
+    .eq('user_id', profile.id)
+    .eq('tenant_id', profile.tenant_id)
+
+  let initialDailyCount = 0
+  for (const s of allUserSessions ?? []) {
+    const msgs = (s.messages ?? []) as Array<{ role: string; timestamp: string }>
+    initialDailyCount += msgs.filter(m => m.role === 'user' && m.timestamp >= todayStartISO).length
   }
 
   const finding  = (task as any).finding  as { title: string; description: string | null; severity: string; cvss_score: number | null; owasp_category: string | null; remediation: string | null } | null
@@ -176,15 +205,13 @@ export default async function TaskDetailPage({
           )}
         </div>
 
-        {/* Right — AI Assist placeholder (Plan 5 replaces this) */}
         <div className="gs au1" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>AI Assist</span>
-            <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 3, background: 'rgba(148,163,184,0.1)', color: '#94a3b8', border: '1px solid rgba(148,163,184,0.2)' }}>COMING SOON</span>
-          </div>
-          <div style={{ padding: '24px 16px', textAlign: 'center', color: '#64748b', fontSize: 12 }}>
-            AI assist will be available here. Pre-loaded with finding context for this task.
-          </div>
+          <AiAssistPanel
+            taskId={taskId}
+            initialMessages={sessionMessages}
+            initialTokensUsed={aiSession?.tokens_used ?? 0}
+            initialDailyCount={initialDailyCount}
+          />
         </div>
       </div>
     </div>
