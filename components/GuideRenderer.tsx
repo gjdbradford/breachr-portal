@@ -155,7 +155,7 @@ export default function GuideRenderer() {
               </div>
             )}
 
-            <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.65, marginBottom: 10 }}>
+            <div className="guide-body" style={{ fontSize: 12, color: '#64748b', lineHeight: 1.65, marginBottom: 10 }}>
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentStep.body}</ReactMarkdown>
             </div>
 

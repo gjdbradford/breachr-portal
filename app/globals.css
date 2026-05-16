@@ -204,3 +204,7 @@ body.sidebar-collapsed .portal-main { margin-left:48px; }
   0%, 100% { box-shadow: 0 0 0 2px rgba(66,165,245,0.5), 0 0 12px rgba(66,165,245,0.2); }
   50%       { box-shadow: 0 0 0 5px rgba(66,165,245,0.2), 0 0 20px rgba(66,165,245,0.4); }
 }
+
+/* Guide step body — paragraph spacing for markdown double line breaks */
+.guide-body p { margin-bottom: 0.6em; }
+.guide-body p:last-child { margin-bottom: 0; }
