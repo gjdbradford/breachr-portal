@@ -20,6 +20,8 @@ export default function InviteAcceptPage() {
   const [password, setPassword]       = useState('')
   const [confirmPw, setConfirmPw]     = useState('')
   const [terms, setTerms]             = useState(false)
+  const [privacyAccepted, setPrivacy] = useState(false)
+  const [inviteRole, setInviteRole]   = useState('')
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState('')
 
@@ -48,6 +50,7 @@ export default function InviteAcceptPage() {
         setTenantId(data.tenant_id)
         setTenantName(data.tenant_name ?? '')
         setIsExisting(data.is_existing_user === true)
+        setInviteRole(data.role ?? '')
       } else {
         // Fallback: legacy inviteUserByEmail flow without invite_id
         const tid = user.user_metadata?.invited_tenant_id as string | undefined
@@ -69,7 +72,8 @@ export default function InviteAcceptPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!user) return
-    if (!terms) { setError('You must accept the Terms of Service to continue'); return }
+    if (!terms) { setError('You must accept the Terms & Conditions to continue'); return }
+    if (!privacyAccepted) { setError('You must accept the Privacy Policy to continue'); return }
 
     if (!isExisting) {
       if (password.length < 8) { setError('Password must be at least 8 characters'); return }
@@ -107,7 +111,7 @@ export default function InviteAcceptPage() {
       body: JSON.stringify({ event: 'user.logged_in' }),
     }).catch(() => {})
 
-    router.push('/dashboard')
+    router.push(inviteRole === 'developer' ? '/dashboard/remediation' : '/dashboard')
   }
 
   const inp: React.CSSProperties = {
@@ -202,13 +206,18 @@ export default function InviteAcceptPage() {
               </>
             )}
 
-            {/* Terms */}
-            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 24, cursor: 'pointer' }}>
+            {/* Terms & privacy — two separate required checkboxes */}
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12, cursor: 'pointer' }}>
               <input type="checkbox" required checked={terms} onChange={e => setTerms(e.target.checked)} style={{ marginTop: 2, flexShrink: 0, accentColor: '#42a5f5' }} />
               <span style={{ fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
                 I agree to the{' '}
-                <a href="https://breachr.ai/terms" target="_blank" rel="noreferrer" style={{ color: '#42a5f5' }}>Terms of Service</a>
-                {' '}and{' '}
+                <a href="https://breachr.ai/terms" target="_blank" rel="noreferrer" style={{ color: '#42a5f5' }}>Terms &amp; Conditions</a>
+              </span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 24, cursor: 'pointer' }}>
+              <input type="checkbox" required checked={privacyAccepted} onChange={e => setPrivacy(e.target.checked)} style={{ marginTop: 2, flexShrink: 0, accentColor: '#42a5f5' }} />
+              <span style={{ fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
+                I have read and accept the{' '}
                 <a href="https://breachr.ai/privacy" target="_blank" rel="noreferrer" style={{ color: '#42a5f5' }}>Privacy Policy</a>
               </span>
             </label>
