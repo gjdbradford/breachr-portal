@@ -25,8 +25,12 @@ CREATE INDEX IF NOT EXISTS idx_remediation_batches_tenant
   ON remediation_batches(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_remediation_batches_assigned
   ON remediation_batches(assigned_to);
+-- Note: updated_at trigger (remediation_batches_updated_at) added in
+-- 20260516000001_remediation_foundation_fixes.sql
 
 ALTER TABLE remediation_batches ENABLE ROW LEVEL SECURITY;
+-- Note: no INSERT/UPDATE/DELETE policies are defined. All writes go through
+-- server-side API routes using the service-role key, which bypasses RLS.
 CREATE POLICY "Tenant members read remediation batches"
   ON remediation_batches FOR SELECT TO authenticated
   USING (
@@ -66,10 +70,15 @@ CREATE INDEX IF NOT EXISTS idx_remediation_tasks_batch
   ON remediation_tasks(batch_id);
 CREATE INDEX IF NOT EXISTS idx_remediation_tasks_assigned
   ON remediation_tasks(assigned_to);
-CREATE INDEX IF NOT EXISTS idx_remediation_tasks_status
-  ON remediation_tasks(status);
+-- Note: idx_remediation_tasks_status (single column, low cardinality) was
+-- replaced by the composite idx_remediation_tasks_tenant_status in the fixes
+-- migration (20260516000001). The composite index is created there.
+-- Note: updated_at trigger (remediation_tasks_updated_at) added in
+-- 20260516000001_remediation_foundation_fixes.sql
 
 ALTER TABLE remediation_tasks ENABLE ROW LEVEL SECURITY;
+-- Note: no INSERT/UPDATE/DELETE policies are defined. All writes go through
+-- server-side API routes using the service-role key, which bypasses RLS.
 CREATE POLICY "Tenant members read remediation tasks"
   ON remediation_tasks FOR SELECT TO authenticated
   USING (
@@ -82,13 +91,23 @@ CREATE POLICY "Tenant members read remediation tasks"
   );
 
 -- ── 4. remediation_status_log (insert-only via service role) ─────────────
+-- Note: no INSERT/UPDATE/DELETE policies are defined. All writes go through
+-- server-side API routes using the service-role key, which bypasses RLS.
 CREATE TABLE IF NOT EXISTS remediation_status_log (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   task_id             uuid NOT NULL REFERENCES remediation_tasks(id)
                            ON DELETE CASCADE,
   tenant_id           uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  from_status         text NOT NULL,
-  to_status           text NOT NULL,
+  from_status         text NOT NULL
+                           CHECK (from_status IN (
+                             'open','in_progress','review_requested',
+                             'verified_fixed','failed_verification','reopened'
+                           )),
+  to_status           text NOT NULL
+                           CHECK (to_status IN (
+                             'open','in_progress','review_requested',
+                             'verified_fixed','failed_verification','reopened'
+                           )),
   changed_by          uuid REFERENCES users(id),
   source              text NOT NULL
                            CHECK (source IN (
@@ -128,6 +147,8 @@ CREATE INDEX IF NOT EXISTS idx_remediation_ai_sessions_task
   ON remediation_ai_sessions(task_id);
 CREATE INDEX IF NOT EXISTS idx_remediation_ai_sessions_user_date
   ON remediation_ai_sessions(user_id, created_at DESC);
+-- Note: updated_at trigger (remediation_ai_sessions_updated_at) added in
+-- 20260516000001_remediation_foundation_fixes.sql
 
 ALTER TABLE remediation_ai_sessions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users read own AI sessions, admins read all"
@@ -145,7 +166,7 @@ CREATE POLICY "Users read own AI sessions, admins read all"
 CREATE TABLE IF NOT EXISTS tenant_integrations (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id             uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  integration           text NOT NULL,
+  integration           text NOT NULL CHECK (integration IN ('jira')),
   auth_method           text NOT NULL CHECK (auth_method IN ('oauth','api_token')),
   encrypted_credentials jsonb NOT NULL DEFAULT '{}',
   jira_base_url         text,
@@ -175,7 +196,7 @@ CREATE TABLE IF NOT EXISTS developer_onboarding_progress (
   tenant_id       uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   completed_at    timestamptz,
   steps_completed text[] NOT NULL DEFAULT '{}',
-  UNIQUE(user_id)
+  UNIQUE(user_id, tenant_id)
 );
 
 ALTER TABLE developer_onboarding_progress ENABLE ROW LEVEL SECURITY;
