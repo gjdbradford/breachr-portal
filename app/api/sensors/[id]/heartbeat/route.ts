@@ -9,16 +9,16 @@ import { logAuditEvent } from '@/lib/audit-log'
 const PortSchema = z.object({
   port:     z.number().int().min(1).max(65535),
   protocol: z.enum(['tcp', 'udp']),
-  service:  z.string().max(100).optional(),
-  banner:   z.string().max(500).optional(),
+  service:  z.string().max(100).nullish(),
+  banner:   z.string().max(500).nullish(),
 })
 
 const AssetSchema = z.object({
   ip:       z.union([z.string().ipv4(), z.string().ipv6()]),
   mac:      z.string().regex(/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i),
-  hostname: z.string().max(253).optional(),
-  vendor:   z.string().max(100).optional(),
-  os_guess: z.string().max(100).optional(),
+  hostname: z.string().max(253).nullish(),
+  vendor:   z.string().max(100).nullish(),
+  os_guess: z.string().max(100).nullish(),
   ports:    z.array(PortSchema).max(1000).default([]),
 })
 
