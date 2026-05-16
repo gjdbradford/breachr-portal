@@ -9,14 +9,32 @@ export const VALID_AUDIT_ACTIONS = [
   // Findings
   'finding.discovered', 'finding.verified_fixed', 'finding.status_changed', 'finding.acknowledged',
   // Assets / inventory
-  'asset.discovered', 'asset.created', 'asset.updated', 'asset.classified', 'asset.acknowledged', 'asset.decommissioned',
+  'asset.discovered', 'asset.created', 'asset.updated', 'asset.classified',
+  'asset.acknowledged', 'asset.decommissioned',
   // Reports & exports
   'report.generated', 'report.viewed', 'report.exported',
   'export.requested', 'export.completed',
-  // Remediation
+  // Remediation (legacy)
   'remediation.updated',
+  // Remediation workflow
+  'remediation.batch_created',
+  'remediation.batch_updated',
+  'remediation.batch_archived',
+  'remediation.batch_reassigned',
+  'remediation.task_status_changed',
+  'remediation.task_verified',
+  'remediation.task_reopened',
+  'remediation.task_removed',
+  // AI assist
+  'ai_assist.session_started',
+  'ai_assist.injection_attempt',
+  'ai_assist.daily_limit_reached',
+  // Integrations
+  'integration.connected',
+  'integration.disconnected',
   // Sensors
-  'sensor.created', 'sensor.updated', 'sensor.activated', 'sensor.deactivated', 'sensor.token_regenerated',
+  'sensor.created', 'sensor.updated', 'sensor.activated',
+  'sensor.deactivated', 'sensor.token_regenerated',
   // Targets & settings
   'target.created', 'target.archived',
   'settings.updated',
