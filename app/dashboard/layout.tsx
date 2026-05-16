@@ -82,6 +82,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
               showScans={resolved['scans.read']}
               showFindings={resolved['findings.read']}
               showInventory={resolved['assets.read']}
+              showRemediation={resolved['remediation.tasks.read']}
+              developerMode={profile.role === 'developer'}
             />
             <main className="portal-main">
               {children}

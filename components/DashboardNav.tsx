@@ -14,14 +14,16 @@ function writeCollapsed(val: boolean) {
 }
 
 const links = [
-  { href: '/dashboard',             label: 'Overview',    icon: '◈' },
-  { href: '/dashboard/targets',     label: 'Targets',     icon: '◎' },
-  { href: '/dashboard/scans',       label: 'Scans',       icon: '⟳' },
-  { href: '/dashboard/findings',    label: 'Findings',    icon: '⚠' },
-  { href: '/dashboard/reports',     label: 'Reports',     icon: '▤' },
-  { href: '/dashboard/inventory',   label: 'Inventory',   icon: '⬡' },
-  { href: '/dashboard/sensors',     label: 'Sensors',     icon: '◉' },
-  { href: '/dashboard/audit',       label: 'Audit Trail', icon: '⛓' },
+  { href: '/dashboard',               label: 'Overview',    icon: '◈' },
+  { href: '/dashboard/targets',       label: 'Targets',     icon: '◎' },
+  { href: '/dashboard/scans',         label: 'Scans',       icon: '⟳' },
+  { href: '/dashboard/findings',      label: 'Findings',    icon: '⚠' },
+  { href: '/dashboard/reports',       label: 'Reports',     icon: '▤' },
+  { href: '/dashboard/inventory',     label: 'Inventory',   icon: '⬡' },
+  { href: '/dashboard/sensors',       label: 'Sensors',     icon: '◉' },
+  { href: '/dashboard/audit',         label: 'Audit Trail', icon: '⛓' },
+  { href: '/dashboard/remediation',   label: 'Remediation', icon: '⟲' },
+  { href: '/dashboard/settings',      label: 'Settings',    icon: '⚙' },
 ]
 
 export default function DashboardNav({
@@ -39,6 +41,8 @@ export default function DashboardNav({
   showScans = true,
   showFindings = true,
   showInventory = true,
+  showRemediation = false,
+  developerMode   = false,
 }: {
   tenantName: string
   plan?: string
@@ -54,6 +58,8 @@ export default function DashboardNav({
   showScans?: boolean
   showFindings?: boolean
   showInventory?: boolean
+  showRemediation?: boolean
+  developerMode?: boolean
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -170,10 +176,15 @@ export default function DashboardNav({
 
       <nav style={{ flex: 1, padding: '8px 4px', overflow: 'visible' }}>
         {links.filter(({ href }) => {
-          if (href === '/dashboard/audit')     return showAudit
-          if (href === '/dashboard/scans')     return showScans
-          if (href === '/dashboard/findings')  return showFindings
-          if (href === '/dashboard/inventory') return showInventory
+          if (developerMode) {
+            return href === '/dashboard/remediation' || href === '/dashboard/settings'
+          }
+          if (href === '/dashboard/audit')       return showAudit
+          if (href === '/dashboard/scans')       return showScans
+          if (href === '/dashboard/findings')    return showFindings
+          if (href === '/dashboard/inventory')   return showInventory
+          if (href === '/dashboard/remediation') return showRemediation
+          if (href === '/dashboard/settings')    return false
           return true
         }).map(({ href, label, icon }) => {
           const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
