@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
 type Step = 1 | 2 | 3 | 4
@@ -26,6 +26,8 @@ export default function NewBatchPage() {
   const [step, setStep]             = useState<Step>(1)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError]           = useState('')
+
+  const dateInputRef = useRef<HTMLInputElement>(null)
 
   const [name, setName]             = useState('')
   const [description, setDesc]      = useState('')
@@ -146,7 +148,38 @@ export default function NewBatchPage() {
                 </div>
                 <div>
                   <label style={lbl}>Due date</label>
-                  <input type="date" style={inp} value={dueDate} onChange={e => setDueDate(e.target.value)} />
+                  <div style={{ position: 'relative' }}>
+                    <div
+                      role="button"
+                      onClick={() => dateInputRef.current?.showPicker()}
+                      style={{ ...inp, display: 'flex', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      <span style={{ flex: 1, color: dueDate ? '#e2e8f0' : '#475569' }}>
+                        {dueDate
+                          ? new Date(dueDate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                          : 'dd/mm/yyyy'}
+                      </span>
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0, color: '#64748b' }}>
+                        <rect x="1" y="2" width="12" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
+                        <path d="M1 5h12" stroke="currentColor" strokeWidth="1.2"/>
+                        <path d="M4 1v2M10 1v2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                        <rect x="3.5" y="7" width="2" height="2" rx="0.4" fill="currentColor"/>
+                        <rect x="6.5" y="7" width="2" height="2" rx="0.4" fill="currentColor"/>
+                        <rect x="3.5" y="10" width="2" height="1.5" rx="0.4" fill="currentColor"/>
+                        <rect x="6.5" y="10" width="2" height="1.5" rx="0.4" fill="currentColor"/>
+                      </svg>
+                    </div>
+                    <input
+                      ref={dateInputRef}
+                      type="date"
+                      value={dueDate}
+                      min={new Date().toISOString().split('T')[0]}
+                      onChange={e => setDueDate(e.target.value)}
+                      style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', top: 0, left: 0, width: '100%', height: '100%' }}
+                      tabIndex={-1}
+                      aria-hidden="true"
+                    />
+                  </div>
                 </div>
               </div>
               <button className="btn-p" style={{ width: '100%', padding: 12 }} onClick={() => setStep(2)} disabled={!name.trim()}>Continue →</button>
@@ -161,7 +194,7 @@ export default function NewBatchPage() {
                 <p style={{ color: '#64748b', fontSize: 13 }}>Loading developers…</p>
               ) : developers.length === 0 ? (
                 <div style={{ padding: 24, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
-                  No developers yet. <a href="/dashboard/settings" style={{ color: '#42a5f5' }}>Invite one from Settings → Team</a>
+                  No developers yet. <a href="/dashboard/settings?tab=team" target="_blank" rel="noopener noreferrer" style={{ color: '#42a5f5' }}>Invite one from Settings → Team ↗</a>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
