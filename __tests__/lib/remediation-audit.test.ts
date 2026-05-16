@@ -139,4 +139,18 @@ describe('logRemediationStatusChange', () => {
     expect(mockLogInsert).not.toHaveBeenCalled()
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('AUDIT_SIGNING_KEY'))
   })
+
+  it('does not write to audit_logs when status_log insert fails', async () => {
+    mockLogInsert.mockResolvedValue({ error: { message: 'constraint violation' } })
+
+    await logRemediationStatusChange(BASE)
+
+    expect(mockAuditInsert).not.toHaveBeenCalled()
+  })
+
+  it('does not throw when audit_logs insert fails', async () => {
+    mockAuditInsert.mockResolvedValue({ error: { message: 'audit log unavailable' } })
+
+    await expect(logRemediationStatusChange(BASE)).resolves.toBeUndefined()
+  })
 })

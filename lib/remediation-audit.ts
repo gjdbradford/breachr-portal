@@ -66,7 +66,7 @@ export async function logRemediationStatusChange({
   const ts = new Date().toISOString()
   const prevHash = await getPrevHash(admin, taskId, tenantId)
 
-  const payload = `${taskId}|${fromStatus}|${toStatus}|${source}|${ts}|${prevHash}`
+  const payload = `${taskId}|${tenantId}|${changedBy ?? ''}|${fromStatus}|${toStatus}|${source}|${ts}|${prevHash}`
   const signature = hmacSha256Hex(signingKey, payload)
 
   const logRow = {
