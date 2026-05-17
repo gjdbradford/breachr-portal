@@ -20,7 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .eq('supabase_uid', user.id)
     .single()
 
-  if (!profile) redirect('/onboarding')
+  if (!profile) redirect('/login?error=no_account')
 
   const { data: tenant } = await supabase
     .from('tenants')

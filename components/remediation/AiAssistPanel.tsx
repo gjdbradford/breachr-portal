@@ -17,11 +17,13 @@ export default function AiAssistPanel({
   initialMessages,
   initialTokensUsed,
   initialDailyCount,
+  compact = false,
 }: {
   taskId: string
   initialMessages:   AiMessage[]
   initialTokensUsed: number
   initialDailyCount: number
+  compact?:          boolean
 }) {
   const [open, setOpen]           = useState(false)
   const [messages, setMessages]   = useState<AiMessage[]>(initialMessages)
@@ -86,18 +88,22 @@ export default function AiAssistPanel({
     border:    `1px solid ${role === 'user' ? 'rgba(66,165,245,0.2)' : 'rgba(255,255,255,0.06)'}`,
   })
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Header / toggle */}
-      <button
-        onClick={() => setOpen(p => !p)}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', color: '#e2e8f0', fontSize: 13, fontWeight: 600, borderBottom: open ? '1px solid rgba(255,255,255,0.06)' : 'none', width: '100%', textAlign: 'left' }}
-      >
-        AI Assist
-        <span style={{ color: '#64748b', fontSize: 11 }}>{open ? '▲' : '▼'}</span>
-      </button>
+  const expanded = compact || open
 
-      {open && (
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: compact ? 1 : undefined }}>
+      {/* Header / toggle — hidden in compact (HelpPanel) mode */}
+      {!compact && (
+        <button
+          onClick={() => setOpen(p => !p)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', color: '#e2e8f0', fontSize: 13, fontWeight: 600, borderBottom: open ? '1px solid rgba(255,255,255,0.06)' : 'none', width: '100%', textAlign: 'left' }}
+        >
+          AI Assist
+          <span style={{ color: '#64748b', fontSize: 11 }}>{open ? '▲' : '▼'}</span>
+        </button>
+      )}
+
+      {expanded && (
         <>
           {/* Usage bars */}
           <div style={{ padding: '8px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', flexDirection: 'column', gap: 5 }}>

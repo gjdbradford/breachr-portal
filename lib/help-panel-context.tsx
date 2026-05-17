@@ -3,12 +3,20 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import type { ReactNode } from 'react'
 
+export type RemediationTaskData = {
+  taskId: string
+  initialMessages: Array<{ role: 'user' | 'assistant'; content: string; tokens: number; timestamp: string }>
+  initialTokensUsed: number
+  initialDailyCount: number
+}
+
 export type HelpPanelConfig = {
   title: string
   defaultTab: 'chat' | 'guides' | 'videos'
   chatContextKey?: 'sensors' | 'generic'
   guides?: { title: string; description: string; href?: string }[]
   videos?: { title: string; thumbnailUrl?: string; href: string }[]
+  remediationTask?: RemediationTaskData
 }
 
 type HelpPanelContextValue = {

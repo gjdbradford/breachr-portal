@@ -177,7 +177,7 @@ export default function DashboardNav({
       <nav style={{ flex: 1, padding: '8px 4px', overflow: 'visible' }}>
         {links.filter(({ href }) => {
           if (developerMode) {
-            return href === '/dashboard/remediation' || href === '/dashboard/settings'
+            return href === '/dashboard/remediation'
           }
           if (href === '/dashboard/audit')       return showAudit
           if (href === '/dashboard/scans')       return showScans
@@ -246,7 +246,7 @@ export default function DashboardNav({
         )}
       </nav>
 
-      {!collapsed && <div style={{ margin: '0 12px 12px', padding: '12px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+      {!collapsed && !developerMode && <div style={{ margin: '0 12px 12px', padding: '12px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
         {/* Plan badge + upgrade link */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>

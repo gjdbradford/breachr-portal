@@ -121,7 +121,11 @@ export default function OnboardingPage() {
 
       const { data: profile } = await supabase
         .from('users').select('tenant_id').eq('supabase_uid', user.id).single()
-      if (!profile) { setLoadingProfile(false); return }
+      if (!profile) {
+        await supabase.auth.signOut()
+        router.push('/login?error=no_account')
+        return
+      }
 
       setTenantId(profile.tenant_id)
 

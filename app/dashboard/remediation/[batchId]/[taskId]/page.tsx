@@ -4,7 +4,7 @@ import { createClient as adminClient } from '@supabase/supabase-js'
 import { resolvePermissions } from '@/lib/resolve-permissions'
 import { can } from '@/lib/permissions'
 import TaskActionBar from '@/components/remediation/TaskActionBar'
-import AiAssistPanel from '@/components/remediation/AiAssistPanel'
+import RemediationHelpRegistrar from '@/components/remediation/RemediationHelpRegistrar'
 import Link from 'next/link'
 
 const SEV_COLOR: Record<string, string> = {
@@ -46,7 +46,7 @@ export default async function TaskDetailPage({
     .select(`
       id, batch_id, status, jira_issue_key,
       resolved_by, resolved_at, resolution_source, verification_attempts,
-      finding:findings(id, title, description, severity, cvss_score, owasp_category, remediation),
+      finding:findings(id, title, description, severity, cvss_score, owasp_category, remediation, scan_id),
       batch:remediation_batches(id, name)
     `)
     .eq('id', taskId)
@@ -64,7 +64,7 @@ export default async function TaskDetailPage({
     .select('id, from_status, to_status, changed_by, source, note, scan_result_summary, created_at')
     .eq('task_id', taskId)
     .eq('tenant_id', profile.tenant_id)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
 
   const changedByIds = [
     ...new Set(((statusLog ?? []).map(l => l.changed_by).filter(Boolean)) as string[]),
@@ -108,11 +108,34 @@ export default async function TaskDetailPage({
     initialDailyCount += msgs.filter(m => m.role === 'user' && m.timestamp >= todayStartISO).length
   }
 
+  // Resolve the latest verification scan for this task's attack surface
+  let latestVerificationScan: { id: string; status: string; progress_pct: number | null; created_at: string } | null = null
+  const findingWithScan = (task as any).finding as { scan_id?: string | null } | null
+  if (findingWithScan?.scan_id) {
+    const { data: originalScan } = await admin
+      .from('scans')
+      .select('attack_surface_id')
+      .eq('id', findingWithScan.scan_id)
+      .single()
+    if (originalScan?.attack_surface_id) {
+      const { data: verifyScan } = await admin
+        .from('scans')
+        .select('id, status, progress_pct, created_at')
+        .eq('tenant_id', profile.tenant_id)
+        .eq('attack_surface_id', originalScan.attack_surface_id)
+        .eq('scan_type', 'verification')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      latestVerificationScan = verifyScan ?? null
+    }
+  }
+
   const finding  = (task as any).finding  as { title: string; description: string | null; severity: string; cvss_score: number | null; owasp_category: string | null; remediation: string | null } | null
   const sColor   = SEV_COLOR[finding?.severity ?? ''] ?? '#64748b'
   const isAdmin  = profile.role === 'admin' || profile.role === 'account_owner'
 
-  const lastReopenNote = [...(statusLog ?? [])].reverse().find(l => l.to_status === 'reopened')?.note ?? null
+  const lastReopenNote = (statusLog ?? []).find(l => l.to_status === 'reopened')?.note ?? null
 
   return (
     <div className="portal-content">
@@ -143,8 +166,15 @@ export default async function TaskDetailPage({
         </Link>
       </div>
 
-      {/* Three-panel layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 280px', gap: 16, padding: '0 24px 24px', alignItems: 'start' }}>
+      <RemediationHelpRegistrar
+        taskId={taskId}
+        initialMessages={sessionMessages}
+        initialTokensUsed={aiSession?.tokens_used ?? 0}
+        initialDailyCount={initialDailyCount}
+      />
+
+      {/* Two-panel layout — AI Assist lives in the HelpPanel (? button top right) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, padding: '0 24px 24px', alignItems: 'start' }}>
 
         {/* Left — Finding details */}
         <div className="gs au1" style={{ padding: 20 }}>
@@ -177,6 +207,34 @@ export default async function TaskDetailPage({
             />
           </div>
 
+          {/* Verification scan status */}
+          {latestVerificationScan && (() => {
+            const s = latestVerificationScan!
+            const isActive  = s.status === 'queued' || s.status === 'running'
+            const isFailed  = s.status === 'failed'
+            const color     = isActive ? '#42a5f5' : isFailed ? '#ef4444' : '#4ade80'
+            const label     = s.status === 'queued'   ? 'Verification scan queued — waiting for scanner'
+                            : s.status === 'running'  ? `Verification scan running… ${s.progress_pct ?? 0}%`
+                            : s.status === 'failed'   ? 'Verification scan failed'
+                            : 'Verification scan complete'
+            return (
+              <div className="gs au1" style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                {isActive && (
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block', animation: 'pulse 1.5s ease-in-out infinite', flexShrink: 0 }} />
+                )}
+                {!isActive && (
+                  <span style={{ fontSize: 14, color, flexShrink: 0 }}>{isFailed ? '✕' : '✓'}</span>
+                )}
+                <div>
+                  <span style={{ fontSize: 12, color, fontWeight: 600 }}>{label}</span>
+                  <span style={{ fontSize: 11, color: '#475569', marginLeft: 8 }}>
+                    {new Date(s.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Status history */}
           {(statusLog ?? []).length > 0 && (
             <div className="gs au1" style={{ padding: 20 }}>
@@ -205,14 +263,6 @@ export default async function TaskDetailPage({
           )}
         </div>
 
-        <div className="gs au1" style={{ padding: 0, overflow: 'hidden' }}>
-          <AiAssistPanel
-            taskId={taskId}
-            initialMessages={sessionMessages}
-            initialTokensUsed={aiSession?.tokens_used ?? 0}
-            initialDailyCount={initialDailyCount}
-          />
-        </div>
       </div>
     </div>
   )

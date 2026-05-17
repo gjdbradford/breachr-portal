@@ -52,7 +52,7 @@ export async function PATCH(
 
   const { data: task } = await admin
     .from('remediation_tasks')
-    .select('id, status, tenant_id')
+    .select('id, status, tenant_id, finding_id, verification_attempts')
     .eq('id', taskId)
     .eq('tenant_id', actorUser.tenant_id)
     .single()
@@ -80,9 +80,10 @@ export async function PATCH(
     updated_at: new Date().toISOString(),
   }
   if (toStatus === 'verified_fixed') {
-    updatePayload.resolved_by        = actorUser.id
-    updatePayload.resolved_at        = new Date().toISOString()
-    updatePayload.resolution_source  = 'manual'
+    updatePayload.resolved_by           = actorUser.id
+    updatePayload.resolved_at           = new Date().toISOString()
+    updatePayload.resolution_source     = 'manual'
+    updatePayload.verification_attempts = ((task as any).verification_attempts ?? 0) + 1
   }
 
   const { error: updateErr } = await admin
@@ -92,7 +93,49 @@ export async function PATCH(
 
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
 
+  // Queue a verification scan when a fix is marked as verified
+  let scanQueued = false
+  if (toStatus === 'verified_fixed' && (task as any).finding_id) {
+    try {
+      const { data: finding } = await admin
+        .from('findings')
+        .select('scan_id')
+        .eq('id', (task as any).finding_id)
+        .single()
+
+      if (finding?.scan_id) {
+        const { data: originalScan } = await admin
+          .from('scans')
+          .select('attack_surface_id')
+          .eq('id', finding.scan_id)
+          .single()
+
+        if (originalScan?.attack_surface_id) {
+          const { error: scanErr } = await admin
+            .from('scans')
+            .insert({
+              tenant_id:         task.tenant_id,
+              attack_surface_id: originalScan.attack_surface_id,
+              scan_type:         'verification',
+              status:            'queued',
+              model_used:        'claude-sonnet-4-6',
+              tests_total:       0,
+              tests_run:         0,
+              progress_pct:      0,
+              current_phase:     'queued',
+            })
+          if (!scanErr) scanQueued = true
+        }
+      }
+    } catch {
+      // Non-fatal — verification scan failure doesn't block the status update
+    }
+  }
+
   const source: RemediationStatusSource = isDeveloper ? 'developer' : 'admin'
+  const logNote = scanQueued
+    ? [note, 'Verification scan automatically queued.'].filter(Boolean).join(' — ')
+    : note
   await logRemediationStatusChange({
     taskId,
     tenantId:   task.tenant_id,
@@ -100,8 +143,8 @@ export async function PATCH(
     toStatus,
     changedBy:  actorUser.id,
     source,
-    note,
+    note:       logNote,
   })
 
-  return NextResponse.json({ ok: true, status: toStatus })
+  return NextResponse.json({ ok: true, status: toStatus, scanQueued })
 }
