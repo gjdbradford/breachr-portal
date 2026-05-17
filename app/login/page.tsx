@@ -20,6 +20,7 @@ export default function LoginPage() {
         auth_failed:         'Authentication failed. Please try again or request a new link.',
         no_token:            'No authentication token found.',
         invalid_token:       'Invalid authentication token.',
+        no_account:          'No account found for this email. Contact your account owner to send you an invitation.',
       }
       setError(known[e] ?? decodeURIComponent(e))
     }

@@ -29,6 +29,7 @@ export default function TaskActionBar({
   const [loading, setLoading] = useState(false)
   const [error, setError]   = useState('')
   const [success, setSuccess] = useState('')
+  const [scanQueued, setScanQueued] = useState(false)
 
   const isDeveloper    = actorRole === 'developer'
   const isAdminOrOwner = actorRole === 'admin' || actorRole === 'account_owner'
@@ -50,6 +51,7 @@ export default function TaskActionBar({
     }
     const d = await res.json()
     setStatus(d.status)
+    setScanQueued(!!d.scanQueued)
     setSuccess(`Status updated to ${STATUS_LABEL[d.status] ?? d.status}`)
     setNote('')
     setLoading(false)
@@ -68,8 +70,9 @@ export default function TaskActionBar({
         </span>
       </div>
 
-      {error   && <p style={{ fontSize: 12, color: '#ef4444', marginBottom: 12, padding: '8px 12px', background: 'rgba(239,68,68,0.08)', borderRadius: 6, border: '1px solid rgba(239,68,68,0.2)' }}>{error}</p>}
-      {success && <p style={{ fontSize: 12, color: '#4ade80', marginBottom: 12, padding: '8px 12px', background: 'rgba(74,222,128,0.08)', borderRadius: 6, border: '1px solid rgba(74,222,128,0.2)' }}>{success}</p>}
+      {error      && <p style={{ fontSize: 12, color: '#ef4444', marginBottom: 12, padding: '8px 12px', background: 'rgba(239,68,68,0.08)', borderRadius: 6, border: '1px solid rgba(239,68,68,0.2)' }}>{error}</p>}
+      {success    && <p style={{ fontSize: 12, color: '#4ade80', marginBottom: 12, padding: '8px 12px', background: 'rgba(74,222,128,0.08)', borderRadius: 6, border: '1px solid rgba(74,222,128,0.2)' }}>{success}</p>}
+      {scanQueued && <p style={{ fontSize: 12, color: '#42a5f5', marginBottom: 12, padding: '8px 12px', background: 'rgba(66,165,245,0.08)', borderRadius: 6, border: '1px solid rgba(66,165,245,0.2)' }}>Verification scan queued — scanner will confirm the fix.</p>}
 
       {/* Developer actions */}
       {isDeveloper && status === 'open' && (

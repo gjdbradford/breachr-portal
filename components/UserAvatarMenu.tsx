@@ -6,9 +6,11 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const ROLE_META: Record<string, { label: string; color: string; bg: string }> = {
-  account_owner: { label: 'Owner',  color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
-  admin:         { label: 'Admin',  color: '#60a5fa', bg: 'rgba(96,165,250,0.12)'  },
-  member:        { label: 'Member', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)'  },
+  account_owner: { label: 'Owner',     color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+  admin:         { label: 'Admin',     color: '#60a5fa', bg: 'rgba(96,165,250,0.12)'  },
+  member:        { label: 'Member',    color: '#94a3b8', bg: 'rgba(148,163,184,0.1)'  },
+  developer:     { label: 'Developer', color: '#34d399', bg: 'rgba(52,211,153,0.1)'   },
+  viewer:        { label: 'Viewer',    color: '#94a3b8', bg: 'rgba(148,163,184,0.1)'  },
 }
 
 export default function UserAvatarMenu({

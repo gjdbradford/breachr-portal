@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useHelpPanel } from '@/lib/help-panel-context'
 import { useOptionalGuide } from '@/lib/guide-context'
 import GuideRenderer from '@/components/GuideRenderer'
+import AiAssistPanel from '@/components/remediation/AiAssistPanel'
 
 interface Message {
   id: string
@@ -49,6 +50,11 @@ export default function HelpPanel() {
       clearPendingTab()
     }
   }, [pendingTab, clearPendingTab])
+
+  useEffect(() => {
+    document.body.classList.toggle('help-panel-open', isOpen)
+    return () => { document.body.classList.remove('help-panel-open') }
+  }, [isOpen])
 
   function handleClose() {
     guide?.dismissGuide()
@@ -100,8 +106,9 @@ export default function HelpPanel() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend() }
   }
 
+  const isRemediationMode = !!config?.remediationTask
   const tabs: { key: 'chat' | 'guides' | 'videos'; label: string }[] = [
-    { key: 'chat', label: 'AI Chat' },
+    { key: 'chat', label: isRemediationMode ? 'AI Assist' : 'AI Chat' },
     { key: 'guides', label: 'Guides' },
     { key: 'videos', label: 'Videos' },
   ]
@@ -156,8 +163,19 @@ export default function HelpPanel() {
           ))}
         </div>
 
+        {/* Remediation AI Assist tab */}
+        {activeTab === 'chat' && isRemediationMode && config?.remediationTask && (
+          <AiAssistPanel
+            compact
+            taskId={config.remediationTask.taskId}
+            initialMessages={config.remediationTask.initialMessages}
+            initialTokensUsed={config.remediationTask.initialTokensUsed}
+            initialDailyCount={config.remediationTask.initialDailyCount}
+          />
+        )}
+
         {/* AI Chat tab */}
-        {activeTab === 'chat' && (
+        {activeTab === 'chat' && !isRemediationMode && (
           <>
             <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10, background: 'rgba(10,16,32,0.4)' }}>
               {messages.length === 0 && !loading && (

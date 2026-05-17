@@ -286,12 +286,14 @@ export default function ProfileTab({
   tenantId,
   currentUserId,
   companyReadOnly = false,
+  hideCompany = false,
 }: {
   tenant: TenantProfile
   user: UserProfile
   tenantId: string
   currentUserId: string
   companyReadOnly?: boolean
+  hideCompany?: boolean
 }) {
   const [name, setName]               = useState(tenant.name ?? '')
   const [industry, setIndustry]       = useState(tenant.industry ?? '')
@@ -384,7 +386,7 @@ export default function ProfileTab({
       )}
 
       {/* Company */}
-      <div className="gs au1" style={{ padding: 24, marginBottom: 24 }}>
+      {!hideCompany && <div className="gs au1" style={{ padding: 24, marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.04em' }}>COMPANY</h2>
           {companyReadOnly && (
@@ -455,7 +457,7 @@ export default function ProfileTab({
             </div>
           </form>
         )}
-      </div>
+      </div>}
 
       {/* Personal */}
       <div className="gs au1" style={{ padding: 24 }}>
