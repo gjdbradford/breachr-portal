@@ -93,6 +93,23 @@ export async function PATCH(
 
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
 
+  // Sync finding status to reflect the task state
+  const FINDING_STATUS_MAP: Record<string, string> = {
+    in_progress:          'in_progress',
+    review_requested:     'in_progress',
+    verified_fixed:       'remediated',    // admin-confirmed; scanner will upgrade to verified_fixed
+    reopened:             'open',
+    failed_verification:  'open',
+  }
+  const findingStatus = FINDING_STATUS_MAP[toStatus]
+  if (findingStatus && (task as any).finding_id) {
+    await admin
+      .from('findings')
+      .update({ status: findingStatus, updated_at: new Date().toISOString() })
+      .eq('id', (task as any).finding_id)
+      .eq('tenant_id', task.tenant_id)
+  }
+
   // Queue a verification scan when a fix is marked as verified
   let scanQueued = false
   if (toStatus === 'verified_fixed' && (task as any).finding_id) {

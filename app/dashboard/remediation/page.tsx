@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as adminClient } from '@supabase/supabase-js'
 import { resolvePermissions } from '@/lib/resolve-permissions'
 import { can } from '@/lib/permissions'
 import Link from 'next/link'
@@ -55,6 +56,59 @@ export default async function RemediationPage() {
     redirect('/dashboard/remediation/admin')
   }
 
+  const admin = adminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+
+  // Verification queue for this developer's verified_fixed tasks
+  const { data: devProfile } = await admin
+    .from('users').select('id').eq('supabase_uid', user.id).single()
+
+  let devVerificationQueue: Array<{
+    taskId: string; batchId: string; batchName: string
+    findingTitle: string; scanStatus: string; progressPct: number | null; queuedAt: string
+  }> = []
+
+  if (devProfile?.id) {
+    const { data: verifiedTasks } = await admin
+      .from('remediation_tasks')
+      .select('id, batch_id, finding_id, finding:findings(title, scan_id), batch:remediation_batches(name)')
+      .eq('tenant_id', profile.tenant_id)
+      .eq('assigned_to', devProfile.id)
+      .eq('status', 'verified_fixed')
+
+    const origScanIds = [...new Set((verifiedTasks ?? []).map((t: any) => t.finding?.scan_id).filter(Boolean) as string[])]
+    if (origScanIds.length > 0) {
+      const { data: origScans } = await admin.from('scans').select('id, attack_surface_id').in('id', origScanIds)
+      const scanToSurface = Object.fromEntries((origScans ?? []).map((s: any) => [s.id, s.attack_surface_id]))
+      const surfaceIds = [...new Set(Object.values(scanToSurface) as string[])]
+      if (surfaceIds.length > 0) {
+        const { data: verifyScans } = await admin
+          .from('scans').select('attack_surface_id, status, progress_pct, created_at')
+          .eq('tenant_id', profile.tenant_id).eq('scan_type', 'verification')
+          .in('attack_surface_id', surfaceIds).order('created_at', { ascending: false })
+        const latestBySurface: Record<string, any> = {}
+        for (const s of verifyScans ?? []) {
+          if (!latestBySurface[s.attack_surface_id]) latestBySurface[s.attack_surface_id] = s
+        }
+        for (const t of verifiedTasks ?? []) {
+          const tAny = t as any
+          const surfaceId = scanToSurface[tAny.finding?.scan_id]
+          const vs = surfaceId ? latestBySurface[surfaceId] : null
+          if (vs) {
+            devVerificationQueue.push({
+              taskId: tAny.id, batchId: tAny.batch_id,
+              batchName: tAny.batch?.name ?? '—',
+              findingTitle: tAny.finding?.title ?? 'Unknown finding',
+              scanStatus: vs.status, progressPct: vs.progress_pct, queuedAt: vs.created_at,
+            })
+          }
+        }
+      }
+    }
+  }
+
   // Developer: RLS scopes to assigned_to automatically
   const { data: rawBatches } = await supabase
     .from('remediation_batches')
@@ -99,6 +153,39 @@ export default async function RemediationPage() {
           <p style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>Your assigned remediation batches</p>
         </div>
       </div>
+
+      {/* Verification queue for developer */}
+      {devVerificationQueue.length > 0 && (
+        <div style={{ padding: '0 24px 8px' }}>
+          <div className="gs au1" style={{ overflow: 'hidden' }}>
+            <div style={{ padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h2 style={{ fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.06em', textTransform: 'uppercase', margin: 0 }}>Your Fixes Being Verified</h2>
+              <span style={{ fontSize: 11, color: '#475569' }}>Breachr AI is re-scanning to confirm your fixes</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {devVerificationQueue.map(q => {
+                const isActive  = q.scanStatus === 'queued' || q.scanStatus === 'running'
+                const isFailed  = q.scanStatus === 'failed'
+                const scanColor = isActive ? '#42a5f5' : isFailed ? '#ef4444' : '#4ade80'
+                const scanLabel = q.scanStatus === 'queued'  ? 'Queued — awaiting scanner'
+                  : q.scanStatus === 'running' ? `Running ${q.progressPct ?? 0}%`
+                  : q.scanStatus === 'failed'  ? 'Scan failed'
+                  : 'Scan complete'
+                return (
+                  <div key={q.taskId} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: 12 }}>
+                    {isActive && <span style={{ width: 6, height: 6, borderRadius: '50%', background: scanColor, display: 'inline-block', animation: 'pulse 1.5s ease-in-out infinite', flexShrink: 0 }} />}
+                    {!isActive && <span style={{ fontSize: 13, color: scanColor, flexShrink: 0 }}>{isFailed ? '✕' : '✓'}</span>}
+                    <span style={{ color: '#e2e8f0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.findingTitle}</span>
+                    <span style={{ color: '#64748b', flexShrink: 0 }}>{q.batchName}</span>
+                    <span style={{ color: scanColor, fontWeight: 600, flexShrink: 0 }}>{scanLabel}</span>
+                    <Link href={`/dashboard/remediation/${q.batchId}/${q.taskId}`} style={{ color: '#42a5f5', flexShrink: 0 }}>View →</Link>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {batches.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '80px 24px', color: '#64748b' }}>
