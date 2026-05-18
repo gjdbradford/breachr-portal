@@ -3,22 +3,31 @@ import { createClient } from '@/lib/supabase/server'
 import { getPlan, fmtTokens } from '@/lib/plans'
 import Link from 'next/link'
 import UpgradePlanCards from '@/components/UpgradePlanCards'
+import type { UpgradePackage } from '@/components/UpgradePlanCards'
 
 export default async function UpgradePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('users').select('tenant_id').eq('supabase_uid', user.id).single()
+  const { data: profile } = await supabase
+    .from('users').select('tenant_id').eq('supabase_uid', user.id).single()
   if (!profile) redirect('/login')
 
-  const { data: tenant } = await supabase
-    .from('tenants')
-    .select('plan, scans_this_month, tokens_used_this_month, plan_scans_limit, plan_tokens_limit, stripe_customer_id')
-    .eq('id', profile.tenant_id)
-    .single()
+  const [{ data: tenant }, { data: packages }] = await Promise.all([
+    supabase
+      .from('tenants')
+      .select('plan, scans_this_month, tokens_used_this_month, plan_scans_limit, plan_tokens_limit, stripe_customer_id')
+      .eq('id', (profile as any).tenant_id)
+      .single(),
+    supabase
+      .from('packages')
+      .select('id, name, slug, price_monthly, price_annual, is_poa, scans_limit, tokens_limit, targets_limit, features, badge, cta_label, stripe_price_monthly_id, stripe_price_annual_id')
+      .eq('status', 'active')
+      .order('display_order', { ascending: true }),
+  ])
 
-  const currentPlan = getPlan(tenant?.plan)
+  const currentPlan = getPlan((tenant as any)?.plan)
 
   return (
     <div className="portal-content">
@@ -32,24 +41,11 @@ export default async function UpgradePage() {
         <Link href="/dashboard/scans" className="btn-s" style={{ fontSize: 12 }}>← Back to Scans</Link>
       </div>
 
-      {/* Current usage */}
       <div className="gs au1" style={{ padding: '16px 20px', marginBottom: 24 }}>
-        <p style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontWeight: 600 }}>This Month's Usage</p>
+        <p style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontWeight: 600 }}>This Month&apos;s Usage</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-          <UsageStat
-            label="Scans used"
-            used={tenant?.scans_this_month ?? 0}
-            limit={currentPlan.scansPerMonth}
-            color="#42a5f5"
-            fmt={String}
-          />
-          <UsageStat
-            label="Tokens used"
-            used={tenant?.tokens_used_this_month ?? 0}
-            limit={currentPlan.tokensPerMonth}
-            color="#a78bfa"
-            fmt={fmtTokens}
-          />
+          <UsageStat label="Scans used" used={(tenant as any)?.scans_this_month ?? 0} limit={currentPlan.scansPerMonth} color="#42a5f5" fmt={String} />
+          <UsageStat label="Tokens used" used={(tenant as any)?.tokens_used_this_month ?? 0} limit={currentPlan.tokensPerMonth} color="#a78bfa" fmt={fmtTokens} />
           <div>
             <p style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Scan types available</p>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -63,10 +59,12 @@ export default async function UpgradePage() {
         </div>
       </div>
 
-      {/* Plan cards with toggle */}
-      <UpgradePlanCards currentPlanId={tenant?.plan ?? 'free'} hasStripeCustomer={!!tenant?.stripe_customer_id} />
+      <UpgradePlanCards
+        packages={(packages ?? []) as UpgradePackage[]}
+        currentPlanSlug={(tenant as any)?.plan ?? 'free'}
+        hasStripeCustomer={!!(tenant as any)?.stripe_customer_id}
+      />
 
-      {/* Extra tokens CTA */}
       <div className="gs" style={{ padding: '20px 24px', borderRadius: 12, border: '1px solid rgba(167,139,250,0.2)', background: 'rgba(167,139,250,0.04)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div>
@@ -76,7 +74,7 @@ export default async function UpgradePage() {
             </p>
           </div>
           <a
-            href={`mailto:sales@breachr.io?subject=Token top-up request&body=I'd like to purchase extra tokens for my ${currentPlan.label} plan. My tenant ID is ${profile.tenant_id}.`}
+            href={`mailto:sales@breachr.io?subject=Token top-up request&body=I'd like to purchase extra tokens for my ${currentPlan.label} plan. My tenant ID is ${(profile as any).tenant_id}.`}
             className="btn-p"
             style={{ fontSize: 12, padding: '9px 20px', textDecoration: 'none', display: 'inline-block' }}
           >
@@ -91,7 +89,7 @@ export default async function UpgradePage() {
 function UsageStat({ label, used, limit, color, fmt }: {
   label: string; used: number; limit: number | null; color: string; fmt: (n: number) => string
 }) {
-  const pct = limit ? Math.min(100, (used / limit) * 100) : 0
+  const pct  = limit ? Math.min(100, (used / limit) * 100) : 0
   const over = limit !== null && used >= limit
   return (
     <div>
