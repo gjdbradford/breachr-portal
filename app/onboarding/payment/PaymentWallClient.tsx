@@ -43,7 +43,7 @@ export default function PaymentWallClient({
     }
   }
 
-  const formattedDate = new Date(trialEndDate).toLocaleDateString(undefined, {
+  const formattedDate = new Date(trialEndDate).toLocaleDateString('en-GB', {
     day: 'numeric', month: 'long', year: 'numeric',
   })
 
