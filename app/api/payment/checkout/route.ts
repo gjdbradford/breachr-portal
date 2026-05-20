@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getProviderForRegion } from '@/lib/payment/factory'
-import { PayFastNotImplementedError } from '@/lib/payment/providers/payfast'
 import type { BillingPeriod } from '@/lib/payment/types'
 
 export async function POST(req: NextRequest) {
@@ -25,6 +24,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const packageId = body.packageId as string
   const period    = body.period as BillingPeriod
+  const returnTo  = typeof body.returnTo === 'string' ? body.returnTo : null
 
   if (!packageId || !period) {
     return NextResponse.json({ error: 'packageId and period are required' }, { status: 400 })
@@ -32,47 +32,54 @@ export async function POST(req: NextRequest) {
 
   const { data: pkg } = await supabase
     .from('packages')
-    .select('stripe_price_monthly_id, stripe_price_annual_id')
+    .select('stripe_price_monthly_id, stripe_price_annual_id, stripe_price_monthly_usd_id, stripe_price_annual_usd_id, trial_period_days')
     .eq('id', packageId)
     .single()
 
   if (!pkg) return NextResponse.json({ error: 'Package not found' }, { status: 404 })
 
+  const billingRegion = (tenant as any)?.billing_region ?? 'row'
+  const isEu = billingRegion === 'eu'
+
+  // Select EUR or USD price ID based on billing_region
   const priceId = period === 'annual'
-    ? (pkg as any).stripe_price_annual_id
-    : (pkg as any).stripe_price_monthly_id
+    ? (isEu ? (pkg as any).stripe_price_annual_id : (pkg as any).stripe_price_annual_usd_id)
+    : (isEu ? (pkg as any).stripe_price_monthly_id : (pkg as any).stripe_price_monthly_usd_id)
+
   if (!priceId) {
     return NextResponse.json({ error: 'Package not available for purchase' }, { status: 400 })
   }
 
-  const provider = getProviderForRegion((tenant as any)?.billing_region)
+  // Trial only for first-time subscribers (no existing stripe_customer_id)
+  const trialDays = (tenant as any)?.stripe_customer_id == null
+    ? ((pkg as any).trial_period_days ?? 0)
+    : 0
+
+  const provider = getProviderForRegion(billingRegion)
   const origin   = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
 
-  try {
-    const result = await provider.createCheckoutSession({
-      packageId,
-      period,
-      providerPriceId:    priceId,
-      tenantId:           (profile as any).tenant_id,
-      customerEmail:      user.email!,
-      customerName:       (tenant as any)?.name ?? null,
-      existingCustomerId: (tenant as any)?.stripe_customer_id ?? null,
-      successUrl:         `${origin}/dashboard/upgrade/success`,
-      cancelUrl:          `${origin}/dashboard/upgrade`,
-    })
+  const successUrl = returnTo ? `${origin}${returnTo}` : `${origin}/dashboard/upgrade/success`
+  const cancelUrl  = returnTo ? `${origin}/onboarding/payment?cancelled=true` : `${origin}/dashboard/upgrade`
 
-    if (result.customerId !== (tenant as any)?.stripe_customer_id) {
-      await supabase
-        .from('tenants')
-        .update({ stripe_customer_id: result.customerId })
-        .eq('id', (profile as any).tenant_id)
-    }
+  const result = await provider.createCheckoutSession({
+    packageId,
+    period,
+    providerPriceId:    priceId,
+    tenantId:           (profile as any).tenant_id,
+    customerEmail:      user.email!,
+    customerName:       (tenant as any)?.name ?? null,
+    existingCustomerId: (tenant as any)?.stripe_customer_id ?? null,
+    successUrl,
+    cancelUrl,
+    trialDays,
+  })
 
-    return NextResponse.json({ url: result.url })
-  } catch (err) {
-    if (err instanceof PayFastNotImplementedError) {
-      return NextResponse.json({ error: err.message }, { status: 503 })
-    }
-    throw err
+  if (result.customerId !== (tenant as any)?.stripe_customer_id) {
+    await supabase
+      .from('tenants')
+      .update({ stripe_customer_id: result.customerId })
+      .eq('id', (profile as any).tenant_id)
   }
+
+  return NextResponse.json({ url: result.url })
 }
