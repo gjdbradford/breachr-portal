@@ -40,13 +40,14 @@ export async function applyPackageToTenant(
   const toMrr    = pkg.price_monthly as number
 
   await db.from('tenants').update({
-    plan:               pkg.slug,
-    plan_scans_limit:   pkg.scans_limit,
-    plan_tokens_limit:  pkg.tokens_limit,
-    plan_targets_limit: pkg.targets_limit,
-    mrr_eur:            toMrr,
-    plan_started_at:    new Date().toISOString(),
-    payment_failed:     false,
+    plan:                  pkg.slug,
+    plan_scans_limit:      pkg.scans_limit,
+    plan_tokens_limit:     pkg.tokens_limit,
+    plan_targets_limit:    pkg.targets_limit,
+    mrr_eur:               toMrr,
+    plan_started_at:       new Date().toISOString(),
+    payment_failed:        false,
+    intended_package_slug: null,
   }).eq('id', tenantId)
 
   await db.from('tenant_packages').delete().eq('tenant_id', tenantId)
