@@ -17,19 +17,23 @@ export const stripeProvider: PaymentProvider = {
       customerId = customer.id
     }
 
-    // customerId is now set; session creation is separate so callers can retry with the new customerId
+    // Append session_id safely — use & if successUrl already has a query string
+    const sessionIdSuffix = params.successUrl.includes('?')
+      ? '&session_id={CHECKOUT_SESSION_ID}'
+      : '?session_id={CHECKOUT_SESSION_ID}'
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       line_items: [{ price: params.providerPriceId, quantity: 1 }],
-      success_url: `${params.successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${params.successUrl}${sessionIdSuffix}`,
       cancel_url: params.cancelUrl,
       subscription_data: {
         metadata: { tenant_id: params.tenantId, package_id: params.packageId },
+        ...(params.trialDays && params.trialDays > 0
+          ? { trial_period_days: params.trialDays }
+          : {}),
       },
-      // metadata on session AND subscription_data — both are needed:
-      // session metadata is available in checkout.session.completed webhook;
-      // subscription_data metadata is available in customer.subscription.* webhooks
       metadata: { tenant_id: params.tenantId, package_id: params.packageId },
       allow_promotion_codes: true,
       billing_address_collection: 'required',
