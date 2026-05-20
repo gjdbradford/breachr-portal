@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local tooling artefacts
+.superpowers/
+memory/
+check_migration.sql
+*.log
