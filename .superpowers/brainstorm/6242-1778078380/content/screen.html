@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Asset Discovery — Architecture Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0e1a; color: #e2e8f0; font-family: 'SF Mono', 'Fira Code', monospace; padding: 32px; }
+  h1 { font-size: 13px; letter-spacing: 0.15em; color: #64748b; text-transform: uppercase; margin-bottom: 4px; }
+  h2 { font-size: 22px; font-weight: 700; color: #e2e8f0; margin-bottom: 32px; }
+
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
+
+  .card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: border-color 0.2s;
+  }
+  .card.recommended {
+    border-color: rgba(99,102,241,0.5);
+    background: rgba(99,102,241,0.04);
+  }
+
+  .card-header { display: flex; align-items: flex-start; gap: 12px; }
+  .option-badge {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+    padding: 3px 8px; border-radius: 4px;
+    background: rgba(255,255,255,0.06);
+    color: #64748b;
+    white-space: nowrap;
+    margin-top: 2px;
+  }
+  .recommended .option-badge {
+    background: rgba(99,102,241,0.2);
+    color: #818cf8;
+  }
+  .card-title { font-size: 15px; font-weight: 700; color: #e2e8f0; }
+  .card-subtitle { font-size: 11px; color: #64748b; margin-top: 2px; }
+
+  .rec-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+    color: #818cf8; background: rgba(99,102,241,0.15);
+    border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 4px; padding: 2px 8px;
+    display: inline-block; margin-bottom: 4px;
+  }
+
+  /* Architecture diagram */
+  .arch {
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    align-items: center;
+  }
+  .node {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    border: 1px solid;
+  }
+  .node-sensor { background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.3); color: #4ade80; }
+  .node-ingest { background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.3); color: #818cf8; }
+  .node-db { background: rgba(100,116,139,0.1); border-color: rgba(100,116,139,0.3); color: #94a3b8; }
+  .node-portal { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.3); color: #fbbf24; }
+  .node-nvd { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: #f87171; }
+
+  .arrow {
+    width: 2px;
+    height: 20px;
+    background: rgba(255,255,255,0.15);
+    position: relative;
+    margin: 0 auto;
+  }
+  .arrow::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: -3px;
+    border: 4px solid transparent;
+    border-top-color: rgba(255,255,255,0.3);
+  }
+  .arrow-label {
+    font-size: 9px;
+    color: #475569;
+    text-align: center;
+    margin: 2px 0;
+    letter-spacing: 0.04em;
+  }
+
+  .pros-cons { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .pros, .cons { display: flex; flex-direction: column; gap: 4px; }
+  .pros-label { font-size: 10px; font-weight: 700; color: #22c55e; letter-spacing: 0.06em; margin-bottom: 2px; }
+  .cons-label { font-size: 10px; font-weight: 700; color: #ef4444; letter-spacing: 0.06em; margin-bottom: 2px; }
+  .item { font-size: 11px; color: #94a3b8; padding-left: 12px; position: relative; line-height: 1.5; }
+  .item::before { content: '·'; position: absolute; left: 4px; }
+
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .metric {
+    text-align: center;
+    padding: 8px 4px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 6px;
+  }
+  .metric-label { font-size: 9px; color: #475569; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .metric-value { font-size: 12px; font-weight: 700; }
+  .v-easy { color: #22c55e; }
+  .v-medium { color: #f59e0b; }
+  .v-hard { color: #ef4444; }
+
+  .footnote { font-size: 12px; color: #475569; text-align: center; margin-top: 8px; }
+
+  .flow-row { display: flex; align-items: center; gap: 6px; justify-content: center; width: 100%; }
+  .flow-arrow { font-size: 11px; color: #475569; }
+  .node-inline {
+    padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600;
+    border: 1px solid; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<h1>Breachr — Asset Discovery Module</h1>
+<h2>Architecture Approaches</h2>
+
+<div class="grid">
+
+  <!-- OPTION A -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="option-badge">OPTION A</div>
+        <div class="card-title">Direct to Supabase</div>
+        <div class="card-subtitle">Sensor phones home via Edge Function</div>
+      </div>
+    </div>
+
+    <div class="arch">
+      <div class="node node-sensor">Docker Sensor<br><span style="font-weight:400;font-size:10px">passive + active scan</span></div>
+      <div class="arrow"></div>
+      <div class="arrow-label">HTTPS + JWT<br>every 60–300s</div>
+      <div class="node node-ingest">Supabase Edge Function<br><span style="font-weight:400;font-size:10px">ingest + validate</span></div>
+      <div class="arrow"></div>
+      <div class="arrow-label">upsert assets</div>
+      <div class="node node-db">Supabase Postgres<br><span style="font-weight:400;font-size:10px">assets, vulns, scans</span></div>
+      <div class="arrow"></div>
+      <div class="arrow-label">read</div>
+      <div class="node node-portal">Next.js Portal<br><span style="font-weight:400;font-size:10px">inventory UI + reports</span></div>
+    </div>
+    <div class="arrow-label" style="margin-top:4px">NVD CVE enrichment: cron job in Edge Function</div>
+
+    <div class="pros-cons">
+      <div class="pros">
+        <div class="pros-label">PROS</div>
+        <div class="item">Zero new infrastructure</div>
+        <div class="item">Supabase auth + RLS just works</div>
+        <div class="item">Fastest to ship</div>
+        <div class="item">No extra cost at MVP scale</div>
+      </div>
+      <div class="cons">
+        <div class="cons-label">CONS</div>
+        <div class="item">Edge functions have 50MB limit</div>
+        <div class="item">CPU-intensive enrichment hits limits</div>
+        <div class="item">Harder to add heavy ML later</div>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric"><div class="metric-label">COMPLEXITY</div><div class="metric-value v-easy">Low</div></div>
+      <div class="metric"><div class="metric-label">COST</div><div class="metric-value v-easy">$0</div></div>
+      <div class="metric"><div class="metric-label">TIME TO MVP</div><div class="metric-value v-easy">1–2 wks</div></div>
+    </div>
+  </div>
+
+  <!-- OPTION B — RECOMMENDED -->
+  <div class="card recommended">
+    <div class="rec-label">★ RECOMMENDED</div>
+    <div class="card-header">
+      <div>
+        <div class="option-badge">OPTION B</div>
+        <div class="card-title">Portal API Routes</div>
+        <div class="card-subtitle">Sensor → Next.js ingest endpoints</div>
+      </div>
+    </div>
+
+    <div class="arch">
+      <div class="node node-sensor">Docker Sensor<br><span style="font-weight:400;font-size:10px">passive + active scan</span></div>
+      <div class="arrow"></div>
+      <div class="arrow-label">HTTPS + sensor token<br>every 60–300s</div>
+      <div class="node node-ingest">Next.js API Routes<br><span style="font-weight:400;font-size:10px">/api/sensors/[id]/heartbeat</span></div>
+      <div class="arrow"></div>
+      <div class="arrow-label">service role write</div>
+      <div class="node node-db">Supabase Postgres<br><span style="font-weight:400;font-size:10px">assets, vulns, scans</span></div>
+      <div class="arrow"></div>
+      <div class="node-nvd" style="font-size:10px;padding:4px 8px;border-radius:4px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);color:#f87171;text-align:center">NVD Feed (nightly cron)</div>
+      <div class="arrow"></div>
+      <div class="arrow-label">read</div>
+      <div class="node node-portal">Next.js Portal<br><span style="font-weight:400;font-size:10px">inventory UI + compliance reports</span></div>
+    </div>
+
+    <div class="pros-cons">
+      <div class="pros">
+        <div class="pros-label">PROS</div>
+        <div class="item">Same codebase you know well</div>
+        <div class="item">Full Node.js runtime (no limits)</div>
+        <div class="item">Easy to add business logic later</div>
+        <div class="item">Sensor tokens isolated from user auth</div>
+        <div class="item">Vercel Fluid Compute = long-running OK</div>
+      </div>
+      <div class="cons">
+        <div class="cons-label">CONS</div>
+        <div class="item">Portal handles ingest + UI (mixing concerns)</div>
+        <div class="item">Portal cold starts affect sensor reliability</div>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric"><div class="metric-label">COMPLEXITY</div><div class="metric-value v-medium">Medium</div></div>
+      <div class="metric"><div class="metric-label">COST</div><div class="metric-value v-easy">~$5/mo</div></div>
+      <div class="metric"><div class="metric-label">TIME TO MVP</div><div class="metric-value v-medium">2–3 wks</div></div>
+    </div>
+  </div>
+
+  <!-- OPTION C -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="option-badge">OPTION C</div>
+        <div class="card-title">Dedicated Ingest Service</div>
+        <div class="card-subtitle">New Python microservice on Railway</div>
+      </div>
+    </div>
+
+    <div class="arch">
+      <div class="node node-sensor">Docker Sensor<br><span style="font-weight:400;font-size:10px">passive + active scan</span></div>
+      <div class="arrow"></div>
+      <div class="arrow-label">HTTPS + sensor token</div>
+      <div class="node node-ingest" style="background:rgba(168,85,247,0.1);border-color:rgba(168,85,247,0.3);color:#c084fc">Python Ingest Service<br><span style="font-weight:400;font-size:10px">FastAPI on Railway</span></div>
+      <div class="arrow"></div>
+      <div class="arrow-label">async writes</div>
+      <div class="node node-db">Supabase Postgres<br><span style="font-weight:400;font-size:10px">assets, vulns, scans</span></div>
+      <div class="arrow-label" style="margin:4px 0">NVD enrichment runs in same service</div>
+      <div class="arrow"></div>
+      <div class="arrow-label">read</div>
+      <div class="node node-portal">Next.js Portal<br><span style="font-weight:400;font-size:10px">inventory UI + compliance reports</span></div>
+    </div>
+
+    <div class="pros-cons">
+      <div class="pros">
+        <div class="pros-label">PROS</div>
+        <div class="item">Clean separation of concerns</div>
+        <div class="item">Python ecosystem for scan enrichment</div>
+        <div class="item">Scales independently of portal</div>
+        <div class="item">Same stack as scanner (Railway)</div>
+      </div>
+      <div class="cons">
+        <div class="cons-label">CONS</div>
+        <div class="item">Third service to maintain + deploy</div>
+        <div class="item">More infra cost + complexity</div>
+        <div class="item">Cross-service auth adds overhead</div>
+        <div class="item">Slowest to ship</div>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric"><div class="metric-label">COMPLEXITY</div><div class="metric-value v-hard">High</div></div>
+      <div class="metric"><div class="metric-label">COST</div><div class="metric-value v-medium">~$15/mo</div></div>
+      <div class="metric"><div class="metric-label">TIME TO MVP</div><div class="metric-value v-hard">3–5 wks</div></div>
+    </div>
+  </div>
+
+</div>
+
+<p class="footnote">
+  Recommendation: <strong style="color:#818cf8">Option B</strong> — uses the existing portal codebase and Vercel infrastructure you already operate, while giving you full Node.js runtime for enrichment tasks. Easy to extract to Option C later if ingest becomes a bottleneck.
+</p>
+
+</body>
+</html>
