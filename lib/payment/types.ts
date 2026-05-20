@@ -1,24 +1,25 @@
 // portal/lib/payment/types.ts
 
-export type Region        = 'eu' | 'za'
+export type Region        = 'eu' | 'row'
 export type ProviderName  = 'stripe' | 'payfast'
 export type BillingPeriod = 'monthly' | 'annual'
 
 export interface CheckoutParams {
-  packageId:          string       // Supabase packages.id (UUID)
+  packageId:          string
   period:             BillingPeriod
-  providerPriceId:    string       // provider-specific price reference (e.g. Stripe price_xxx)
+  providerPriceId:    string
   tenantId:           string
   customerEmail:      string
   customerName:       string | null
-  existingCustomerId: string | null // provider-specific customer ref already on tenant
+  existingCustomerId: string | null
   successUrl:         string
   cancelUrl:          string
+  trialDays?:         number
 }
 
 export interface CheckoutResult {
-  url:        string  // redirect the user here
-  customerId: string  // provider customer ID — persist to tenants after checkout
+  url:        string
+  customerId: string
 }
 
 export interface PaymentProvider {
