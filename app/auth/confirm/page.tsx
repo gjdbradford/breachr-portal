@@ -29,7 +29,7 @@ export default function AuthConfirmPage() {
       if (error) {
         window.location.href = `/login?error=${encodeURIComponent(error.message)}`
       } else {
-        window.location.href = type === 'invite' ? '/invite/accept' : '/dashboard'
+        window.location.href = type === 'invite' ? '/invite/accept' : type === 'signup' ? '/onboarding' : '/dashboard'
       }
     })
   }, [])

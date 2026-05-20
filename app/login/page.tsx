@@ -23,6 +23,9 @@ export default function LoginPage() {
         no_account:          'No account found for this email. Contact your account owner to send you an invitation.',
       }
       setError(known[e] ?? decodeURIComponent(e))
+      // Sign out any stale session so the user isn't looped back to dashboard.
+      createClient().auth.signOut()
+      return
     }
 
     // Supabase falls back to Site URL when redirectTo isn't allowlisted —
