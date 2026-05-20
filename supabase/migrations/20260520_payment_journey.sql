@@ -7,3 +7,11 @@ ALTER TABLE packages
 -- Track intended package selection during checkout flow
 ALTER TABLE tenants
   ADD COLUMN IF NOT EXISTS intended_package_slug text;
+
+-- Referential integrity: clear intent if package is deleted
+ALTER TABLE tenants
+  ADD CONSTRAINT fk_intended_package_slug
+  FOREIGN KEY (intended_package_slug) REFERENCES packages(slug) ON DELETE SET NULL;
+
+-- Index for onboarding payment wall lookup
+CREATE INDEX IF NOT EXISTS idx_tenants_intended_package_slug ON tenants(intended_package_slug);
