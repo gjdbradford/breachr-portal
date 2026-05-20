@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { COUNTRIES } from '@/lib/countries'
 import { TIMEZONES, TZ_REGIONS } from '@/lib/timezones'
+import { getBillingRegion } from '@/lib/eu-countries'
 
 type Step = 1 | 2 | 3 | 4
 
@@ -62,12 +63,20 @@ const FRAMEWORKS = [
 
 export default function OnboardingPage() {
   const router = useRouter()
-  const [step, setStep]                 = useState<Step>(1)
+  const [step, setStep]                 = useState<Step>(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('step')
+      const n = parseInt(p ?? '1', 10)
+      return (n >= 1 && n <= 4 ? n : 1) as Step
+    }
+    return 1
+  })
   const [loading, setLoading]           = useState(false)
   const [loadingProfile, setLoadingProfile] = useState(true)
   const [error, setError]               = useState('')
   const [tenantId, setTenantId]         = useState<string | null>(null)
   const [userId, setUserId]             = useState<string | null>(null)
+  const [intendedPackageSlug, setIntendedPackageSlug] = useState<string | null>(null)
 
   // Step 1 — location & mobile
   const [country, setCountry]           = useState('')
@@ -131,7 +140,7 @@ export default function OnboardingPage() {
 
       const { data: tenant } = await supabase
         .from('tenants')
-        .select('country, timezone, compliance_frameworks, onboarding_complete')
+        .select('country, timezone, compliance_frameworks, onboarding_complete, intended_package_slug')
         .eq('id', profile.tenant_id)
         .single()
 
@@ -140,6 +149,7 @@ export default function OnboardingPage() {
         if (tenant.country)              setCountry(tenant.country)
         if (tenant.timezone)             setTimezone(tenant.timezone)
         if (tenant.compliance_frameworks?.length) setFrameworks(tenant.compliance_frameworks)
+        setIntendedPackageSlug((tenant as any).intended_package_slug ?? null)
       }
 
       setLoadingProfile(false)
@@ -154,15 +164,22 @@ export default function OnboardingPage() {
     const supabase = createClient()
 
     const fullPhone = mobileNumber.trim() ? `${dialCode} ${mobileNumber.trim()}` : null
+    const billing_region = getBillingRegion(country)
 
     const [tenantRes] = await Promise.all([
-      supabase.from('tenants').update({ country, timezone }).eq('id', tenantId),
+      supabase.from('tenants').update({ country, timezone, billing_region }).eq('id', tenantId),
       fullPhone
         ? supabase.from('users').update({ phone: fullPhone } as any).eq('id', userId)
         : Promise.resolve({ error: null }),
     ])
 
     if (tenantRes.error) { setError(tenantRes.error.message); setLoading(false); return }
+
+    if (intendedPackageSlug) {
+      router.push('/onboarding/payment')
+      return
+    }
+
     setStep(2); setLoading(false)
   }
 
